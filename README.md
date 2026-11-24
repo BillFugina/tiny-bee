@@ -60,10 +60,13 @@ CI fails if the schema and the migrations disagree.
 ## Deploying on Vercel
 
 1. Import this repo as a new Vercel project (framework: Vite; `vercel.json`
-   sets the build command and routes).
-2. Add the Neon integration from the Vercel Marketplace and connect it to the
-   project, with a database branch for each preview deployment. It sets
-   `DATABASE_URL` per environment.
+   sets the build command and routes). When Vercel's GitHub app asks for repo
+   access, choose only this repository.
+2. Connect Neon. With an existing Neon account, start from the Neon console
+   (Integrations > Vercel) so the database stays in that account, and turn on a
+   database branch for each preview deployment. It sets `DATABASE_URL` per
+   environment. Moving the app to another Vercel account later only means
+   reconnecting this integration; the data stays put.
 3. Add `BETTER_AUTH_SECRET` for Production and Preview (generate with the
    command in `.env.example`).
 4. Push a branch: Vercel builds a preview, the build migrates that preview's
