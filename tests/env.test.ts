@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { isNeonUrl } from '../server/db/client.js'
-import { appOrigin, type Env } from '../server/env.js'
+import { appOrigin, trustedOrigins, type Env } from '../server/env.js'
 
 const base: Env = { DATABASE_URL: 'x', BETTER_AUTH_SECRET: 'x'.repeat(32) }
 
@@ -35,6 +35,39 @@ describe('appOrigin', () => {
 
   it('falls back to the Vite dev server locally', () => {
     expect(appOrigin(base)).toBe('http://localhost:5173')
+  })
+})
+
+describe('trustedOrigins', () => {
+  it("trusts a preview's branch URL, its own deployment URL and the production domain", () => {
+    expect(
+      trustedOrigins({
+        ...base,
+        VERCEL_ENV: 'preview',
+        VERCEL_BRANCH_URL: 'tiny-bee-git-feature-bill.vercel.app',
+        VERCEL_URL: 'tiny-bee-abc123.vercel.app',
+        VERCEL_PROJECT_PRODUCTION_URL: 'tiny-bee.vercel.app',
+      }),
+    ).toEqual([
+      'https://tiny-bee-git-feature-bill.vercel.app',
+      'https://tiny-bee-abc123.vercel.app',
+      'https://tiny-bee.vercel.app',
+    ])
+  })
+
+  it('still trusts the URL a preview is opened on when BETTER_AUTH_URL points elsewhere', () => {
+    const origins = trustedOrigins({
+      ...base,
+      BETTER_AUTH_URL: 'https://tiny-bee-git-old-branch-bill.vercel.app/',
+      VERCEL_ENV: 'preview',
+      VERCEL_BRANCH_URL: 'tiny-bee-git-feature-bill.vercel.app',
+    })
+    expect(origins).toContain('https://tiny-bee-git-old-branch-bill.vercel.app')
+    expect(origins).toContain('https://tiny-bee-git-feature-bill.vercel.app')
+  })
+
+  it('is just localhost in local dev', () => {
+    expect(trustedOrigins(base)).toEqual(['http://localhost:5173'])
   })
 })
 
