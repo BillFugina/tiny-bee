@@ -1,5 +1,7 @@
+import { sql } from 'drizzle-orm'
 import {
   boolean,
+  check,
   doublePrecision,
   index,
   integer,
@@ -117,5 +119,13 @@ export const meetupMember = pgTable(
     startLng: doublePrecision('start_lng'),
     maxMinutes: integer('max_minutes'),
   },
-  (t) => [primaryKey({ columns: [t.meetupId, t.userId] }), index('meetup_member_user_id_idx').on(t.userId)],
+  (t) => [
+    primaryKey({ columns: [t.meetupId, t.userId] }),
+    index('meetup_member_user_id_idx').on(t.userId),
+    // A start is all five fields or none, so no write path can leave half of one.
+    check(
+      'meetup_member_start_complete',
+      sql`num_nonnulls(${t.startTownId}, ${t.startLabel}, ${t.startLat}, ${t.startLng}, ${t.maxMinutes}) in (0, 5)`,
+    ),
+  ],
 )

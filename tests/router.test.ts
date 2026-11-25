@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto'
-import { inArray } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createDb, type Db } from '../server/db/client.js'
-import { user } from '../server/db/schema.js'
+import { meetupMember, user } from '../server/db/schema.js'
 import { createTownDirectory } from '../server/places/directory.js'
 import { appRouter } from '../server/routers/index.js'
 import { createCallerFactory, type SessionUser } from '../server/trpc.js'
@@ -156,5 +156,18 @@ describe.skipIf(!url)('meetups against Postgres', () => {
     })
     await expect(as(stranger).meetups.preview({ meetupId: randomUUID() })).rejects.toMatchObject({ code: 'NOT_FOUND' })
     await expect(as(stranger).meetups.join({ meetupId: randomUUID() })).rejects.toMatchObject({ code: 'NOT_FOUND' })
+  })
+
+  it('refuses a half-written start at the database', async () => {
+    const { id: meetupId } = await as(me).meetups.create({ title: 'Constraint check' })
+    const mine = and(eq(meetupMember.meetupId, meetupId), eq(meetupMember.userId, me.id))
+    await expect(db.update(meetupMember).set({ startTownId: 1, maxMinutes: 60 }).where(mine)).rejects.toThrow()
+
+    await as(me).meetups.setMyStart({ meetupId, townId: 1, maxMinutes: 60 })
+    await expect(db.update(meetupMember).set({ startLat: null }).where(mine)).rejects.toThrow()
+    await db
+      .update(meetupMember)
+      .set({ startTownId: null, startLabel: null, startLat: null, startLng: null, maxMinutes: null })
+      .where(mine)
   })
 })
