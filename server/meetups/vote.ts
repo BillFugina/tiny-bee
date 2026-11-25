@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { TRPCError } from '@trpc/server'
-import { and, count, eq, sql } from 'drizzle-orm'
+import { and, count, eq, gte, sql } from 'drizzle-orm'
 import { instantRunoff, type InstantRunoffResult } from '../../domain/index.js'
 import { VOTING_MAX_DAYS } from '../../shared/schemas.js'
 import type { Db } from '../db/client.js'
@@ -59,27 +59,17 @@ export async function openVoting(
       throw new TRPCError({ code: 'BAD_REQUEST', message: `Voting can stay open ${VOTING_MAX_DAYS} days at most.` })
     }
   }
-  const tooFew = () => new TRPCError({ code: 'BAD_REQUEST', message: 'Shortlist at least two places before voting.' })
-  if ((await listItems(db, input.meetupId)).length < 2) throw tooFew()
-
-  // Shortlist writes hold a share lock on the meetup row, so this update waits
-  // for any in flight and every later one sees the new phase and stops.
+  // Adds and removals update this same row, so this waits for any in flight
+  // and checks the count they leave. Later ones see the new phase and stop.
   const [opened] = await db
     .update(meetup)
     .set({ phase: 'voting', votingDeadline: input.deadline })
-    .where(and(eq(meetup.id, input.meetupId), eq(meetup.phase, 'planning')))
+    .where(and(eq(meetup.id, input.meetupId), eq(meetup.phase, 'planning'), gte(meetup.shortlistCount, 2)))
     .returning({ id: meetup.id })
-  if (!opened) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Voting has already started.' })
-
-  // A removal that landed while this waited could leave too few places. The
-  // shortlist is settled now, so check again and undo if so.
-  if ((await listItems(db, input.meetupId)).length < 2) {
-    await db.execute(sql`
-      update ${meetup} set phase = 'planning', voting_deadline = null
-      where id = ${input.meetupId} and phase = 'voting'
-        and not exists (select 1 from ${ballotReceipt} where meetup_id = ${input.meetupId})
-    `)
-    throw tooFew()
+  if (!opened) {
+    const state = await getMeetupState(db, input.meetupId)
+    if (state.phase !== 'planning') throw new TRPCError({ code: 'BAD_REQUEST', message: 'Voting has already started.' })
+    throw new TRPCError({ code: 'BAD_REQUEST', message: 'Shortlist at least two places before voting.' })
   }
   return { opened: true }
 }

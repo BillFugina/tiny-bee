@@ -1,7 +1,12 @@
 import { randomUUID } from 'node:crypto'
-import { eq, inArray } from 'drizzle-orm'
+import { setTimeout as sleep } from 'node:timers/promises'
+import { eq, inArray, sql } from 'drizzle-orm'
+import { drizzle } from 'drizzle-orm/node-postgres'
+import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { createDb, type Db } from '../server/db/client.js'
+import { createDb, schema, type Db } from '../server/db/client.js'
+import { addItem, removeItem } from '../server/meetups/shortlist.js'
+import { openVoting } from '../server/meetups/vote.js'
 import { ballot, ballotReceipt, meetup, shortlistItem, user } from '../server/db/schema.js'
 import { createTownDirectory } from '../server/places/directory.js'
 import { appRouter } from '../server/routers/index.js'
@@ -15,6 +20,8 @@ const towns = createTownDirectory(fixtureTowns)
 const url = process.env.DATABASE_URL
 describe.skipIf(!url)('shortlist and vote against Postgres', () => {
   const db = url ? createDb(url) : (undefined as unknown as Db)
+  // A second pool, for holding a transaction open while the app's code runs.
+  const rawPool = new pg.Pool({ connectionString: url, max: 2 })
   const newUser = (name: string): SessionUser => ({
     id: `test-${randomUUID()}`,
     email: `${randomUUID()}@example.com`,
@@ -32,6 +39,7 @@ describe.skipIf(!url)('shortlist and vote against Postgres', () => {
   })
 
   afterAll(async () => {
+    await rawPool.end()
     await db.delete(user).where(
       inArray(
         user.id,
@@ -39,6 +47,38 @@ describe.skipIf(!url)('shortlist and vote against Postgres', () => {
       ),
     )
   })
+
+  /** Puts made-up towns on a shortlist directly, keeping the meetup's count right. */
+  async function fillShortlist(meetupId: string, townIds: number[]) {
+    await db
+      .insert(shortlistItem)
+      .values(townIds.map((townId) => ({ meetupId, townId, label: `Town ${townId}`, lat: 35, lng: -80 })))
+    await db
+      .update(meetup)
+      .set({ shortlistCount: sql`${meetup.shortlistCount} + ${townIds.length}` })
+      .where(eq(meetup.id, meetupId))
+  }
+
+  /**
+   * Runs `body` with the app's own code in a transaction on a separate
+   * connection, and leaves it uncommitted until `release` is called. That is
+   * a request caught mid-flight, so another request can be run against it.
+   */
+  async function holdTransaction(body: (tx: Db) => Promise<unknown>) {
+    const client = await rawPool.connect()
+    await client.query('begin')
+    await body(drizzle({ client, schema }) as unknown as Db)
+    return async () => {
+      await client.query('commit')
+      client.release()
+    }
+  }
+
+  /** Whether `promise` is still pending after a short wait, meaning it is blocked on a lock. */
+  async function stillWaiting(promise: Promise<unknown>) {
+    const pending = Symbol('pending')
+    return (await Promise.race([promise.catch(() => null), sleep(300).then(() => pending)])) === pending
+  }
 
   /** A meetup with the organizer, Ana and Ben, and Westford, Midway and Eastford shortlisted. */
   async function meetupWithShortlist() {
@@ -72,9 +112,7 @@ describe.skipIf(!url)('shortlist and vote against Postgres', () => {
     const { id: meetupId } = await as(organizer).meetups.create({ title: 'Cap test' })
     for (const townId of [1, 2, 3, 4, 5, 6]) await as(organizer).shortlist.add({ meetupId, townId })
     // The fixture has only 7 towns, so fill two slots directly.
-    await db
-      .insert(shortlistItem)
-      .values([98, 99].map((townId) => ({ meetupId, townId, label: `Town ${townId}`, lat: 35, lng: -80 })))
+    await fillShortlist(meetupId, [98, 99])
     await expect(as(organizer).shortlist.add({ meetupId, townId: 7 })).rejects.toMatchObject({
       message: 'The shortlist holds 8 places at most.',
     })
@@ -82,13 +120,43 @@ describe.skipIf(!url)('shortlist and vote against Postgres', () => {
 
   it('keeps the cap when places are added at the same time', async () => {
     const { id: meetupId } = await as(organizer).meetups.create({ title: 'Cap race' })
-    await db
-      .insert(shortlistItem)
-      .values(
-        [93, 94, 95, 96, 97, 98].map((townId) => ({ meetupId, townId, label: `Town ${townId}`, lat: 35, lng: -80 })),
-      )
+    await fillShortlist(meetupId, [93, 94, 95, 96, 97, 98])
     await Promise.allSettled([1, 2, 3, 4].map((townId) => as(organizer).shortlist.add({ meetupId, townId })))
     expect((await as(organizer).shortlist.list({ meetupId })).items).toHaveLength(8)
+  })
+
+  it('makes an add wait for one in flight, then refuses it at the cap', async () => {
+    const { id: meetupId } = await as(organizer).meetups.create({ title: 'Cap interleave' })
+    await fillShortlist(meetupId, [92, 93, 94, 95, 96, 97, 98])
+    const release = await holdTransaction((tx) => addItem(tx, towns, { meetupId, townId: 2 }, organizer.id))
+    const late = as(organizer).shortlist.add({ meetupId, townId: 1 })
+    expect(await stillWaiting(late)).toBe(true)
+    await release()
+    await expect(late).rejects.toMatchObject({ message: 'The shortlist holds 8 places at most.' })
+    const list = await as(organizer).shortlist.list({ meetupId })
+    expect(list.items).toHaveLength(8)
+    expect(list.items.at(-1)?.label).toBe('Midway, NC')
+  })
+
+  it('makes opening voting wait for a removal in flight, then sees too few places', async () => {
+    const { meetupId, midway, eastford } = await meetupWithShortlist()
+    await as(organizer).shortlist.remove({ meetupId, itemId: eastford })
+    const release = await holdTransaction((tx) => removeItem(tx, { meetupId, itemId: midway }, organizer.id))
+    const opening = as(organizer).vote.open({ meetupId, deadline: null })
+    expect(await stillWaiting(opening)).toBe(true)
+    await release()
+    await expect(opening).rejects.toMatchObject({ message: 'Shortlist at least two places before voting.' })
+    expect(await as(organizer).vote.status({ meetupId })).toMatchObject({ phase: 'planning' })
+  })
+
+  it('makes a shortlist change wait for voting to open, then refuses it', async () => {
+    const { meetupId } = await meetupWithShortlist()
+    const release = await holdTransaction((tx) => openVoting(tx, { meetupId, deadline: null }, organizer.id))
+    const add = as(ana).shortlist.add({ meetupId, townId: 4 })
+    expect(await stillWaiting(add)).toBe(true)
+    await release()
+    await expect(add).rejects.toMatchObject({ message: 'Voting has started, so the shortlist is fixed.' })
+    expect((await as(ana).shortlist.list({ meetupId })).items).toHaveLength(3)
   })
 
   it('never opens voting on a shortlist that changes under it', async () => {

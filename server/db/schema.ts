@@ -108,6 +108,12 @@ export const meetup = pgTable('meetup', {
   decidedAt: timestamp('decided_at', { withTimezone: true }),
   /** The instant-runoff count, kept once voting closes so the reveal never changes. */
   result: jsonb('result').$type<InstantRunoffResult>(),
+  /**
+   * How many places are on the shortlist. Every add and removal updates this
+   * row, so they queue behind each other and behind opening voting, and the
+   * cap and the two-place minimum are checked against the latest count.
+   */
+  shortlistCount: integer('shortlist_count').notNull().default(0),
   ...timestamps,
 })
 
