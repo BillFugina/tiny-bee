@@ -5,13 +5,16 @@ import {
   doublePrecision,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   primaryKey,
   text,
   timestamp,
+  unique,
   uuid,
 } from 'drizzle-orm/pg-core'
+import type { InstantRunoffResult } from '../../domain/index.js'
 
 const timestamps = {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -85,11 +88,14 @@ export const verification = pgTable(
 )
 
 // ---------------------------------------------------------------------------
-// App tables. Just enough to prove the stack end to end; the planner's real
-// model (constraints, candidate areas, ballots, audit log) comes next.
+// App tables. Private constraints, cached travel times and the audit log come
+// later; for now a meetup has members, their starts, a shortlist and a vote.
 // ---------------------------------------------------------------------------
 
 export const memberRole = pgEnum('member_role', ['organizer', 'member'])
+
+/** planning: shortlist open. voting: ballots open, shortlist frozen. decided: result stored. */
+export const meetupPhase = pgEnum('meetup_phase', ['planning', 'voting', 'decided'])
 
 export const meetup = pgTable('meetup', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -97,6 +103,11 @@ export const meetup = pgTable('meetup', {
   organizerId: text('organizer_id')
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
+  phase: meetupPhase('phase').notNull().default('planning'),
+  votingDeadline: timestamp('voting_deadline', { withTimezone: true }),
+  decidedAt: timestamp('decided_at', { withTimezone: true }),
+  /** The instant-runoff count, kept once voting closes so the reveal never changes. */
+  result: jsonb('result').$type<InstantRunoffResult>(),
   ...timestamps,
 })
 
@@ -128,4 +139,57 @@ export const meetupMember = pgTable(
       sql`num_nonnulls(${t.startTownId}, ${t.startLabel}, ${t.startLat}, ${t.startLng}, ${t.maxMinutes}) in (0, 5)`,
     ),
   ],
+)
+
+/** Places the group will vote on. Candidate order for tie-breaks is the order items were added. */
+export const shortlistItem = pgTable(
+  'shortlist_item',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    meetupId: uuid('meetup_id')
+      .notNull()
+      .references(() => meetup.id, { onDelete: 'cascade' }),
+    // Copied in from the town list, like a member's start.
+    townId: integer('town_id').notNull(),
+    label: text('label').notNull(),
+    lat: doublePrecision('lat').notNull(),
+    lng: doublePrecision('lng').notNull(),
+    note: text('note'),
+    addedBy: text('added_by').references(() => user.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique('shortlist_item_meetup_town_uq').on(t.meetupId, t.townId)],
+)
+
+// Who voted and what was voted live apart, with nothing to join them on. A
+// receipt says a member voted (for turnout and one vote each). A ballot holds a
+// ranking and the hash of a token only its voter was given, so they can change
+// it before voting closes. Neither has a timestamp. Whoever runs the database
+// could still try to correlate them; the app itself can't.
+
+export const ballotReceipt = pgTable(
+  'ballot_receipt',
+  {
+    meetupId: uuid('meetup_id')
+      .notNull()
+      .references(() => meetup.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+  },
+  (t) => [primaryKey({ columns: [t.meetupId, t.userId] })],
+)
+
+export const ballot = pgTable(
+  'ballot',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    meetupId: uuid('meetup_id')
+      .notNull()
+      .references(() => meetup.id, { onDelete: 'cascade' }),
+    tokenHash: text('token_hash').notNull(),
+    /** Shortlist item ids, best first. */
+    ranking: jsonb('ranking').$type<string[]>().notNull(),
+  },
+  (t) => [unique('ballot_meetup_token_uq').on(t.meetupId, t.tokenHash)],
 )

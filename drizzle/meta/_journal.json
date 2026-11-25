@@ -22,6 +22,13 @@
       "when": 1795629224510,
       "tag": "0002_member_start_complete",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1795632039040,
+      "tag": "0003_vote",
+      "breakpoints": true
     }
   ]
 }

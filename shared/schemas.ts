@@ -30,3 +30,39 @@ export const fairAreasInput = meetupIdInput.extend({
 })
 
 export const townSearchInput = z.object({ q: z.string().trim().min(2).max(80) })
+
+/** Most places a shortlist can hold, so a ballot stays quick to rank. */
+export const SHORTLIST_MAX = 8
+/** Longest a vote can stay open. */
+export const VOTING_MAX_DAYS = 30
+
+export const shortlistNoteField = z.string().trim().max(200, 'Keep the note under 200 characters')
+
+export const addToShortlistInput = meetupIdInput.extend({
+  townId: z.number().int().positive(),
+  note: shortlistNoteField.optional(),
+})
+
+export const shortlistItemInput = meetupIdInput.extend({ itemId: z.uuid() })
+
+export const openVotingFields = z.object({
+  /** Null leaves voting open until the organizer closes it or everyone has voted. */
+  deadline: z.date().nullable(),
+})
+export const openVotingInput = meetupIdInput.extend(openVotingFields.shape)
+
+/** A ballot token: random, handed to the voter once, never stored in the clear. */
+export const ballotToken = z.string().regex(/^[A-Za-z0-9_-]{32}$/, 'Not a ballot token')
+
+export const castBallotInput = meetupIdInput.extend({
+  /** Shortlist item ids, best first. Ranking only some is fine. */
+  ranking: z
+    .array(z.uuid())
+    .min(1, 'Rank at least one place')
+    .max(SHORTLIST_MAX)
+    .refine((ids) => new Set(ids).size === ids.length, 'Each place can be ranked once'),
+  /** Present when changing a ballot already cast. */
+  token: ballotToken.optional(),
+})
+
+export const myBallotInput = meetupIdInput.extend({ token: ballotToken })
