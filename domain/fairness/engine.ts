@@ -7,7 +7,9 @@
  * 1. Candidates: the geometric median of everyone's start, plus known places
  *    (towns) near the group.
  * 2. Prune for free: estimate each trip from straight-line distance, drop
- *    candidates that clearly break someone's limit, keep the best few.
+ *    candidates that clearly break someone's limit, keep the best few. This is
+ *    a heuristic (see pruneCandidates): it saves maps calls but can drop the
+ *    true best place.
  * 3. Real times: one travel-time matrix for people x finalists, through a
  *    provider the caller supplies (a maps API in production, estimates in tests).
  * 4. Score: rank by the longest single trip (minimax), with a slider that
@@ -138,6 +140,13 @@ export type PruneOptions = ScoreOptions &
  * Step 2: score candidates on estimated times, drop clear misses, keep the best few.
  * If nothing fits everyone's limit even loosely, keep the few closest misses
  * instead, so the planner can say how close the group can get.
+ *
+ * This is a heuristic, not a guarantee. Estimates use straight-line distance, a
+ * fixed road factor and an average speed, so they can be off by more than
+ * limitSlack near water, mountains or sparse road networks. When that happens
+ * the real best place can be pruned before real times are fetched. Until keep,
+ * limitSlack and the road factor are tuned against real routes, treat the
+ * result as "the fairest of the places checked", not the fairest anywhere.
  */
 export function pruneCandidates(
   travelers: readonly Traveler[],

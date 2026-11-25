@@ -29,9 +29,15 @@ function toLatLng([x, y, z]: Vec3): LatLng {
 
 /**
  * The geometric median: the point with the smallest total distance to everyone.
- * Weiszfeld's method on the unit sphere, which is accurate at the scale of a
- * group that could drive to meet. Unlike the plain average, one far-off person
- * can't drag it away from everyone else.
+ * Unlike the plain average, one far-off person can't drag it away from everyone else.
+ *
+ * This is an approximation, not an exact spherical optimization. Each step is a
+ * Weiszfeld step in 3D: average the points as unit vectors, weighted by the
+ * inverse of their great-circle distance, then project back onto the sphere.
+ * Within driving range (a few hundred km) the sphere is nearly flat and the
+ * result is close to the true median; across continents it can drift. That's
+ * fine here, since the median is only one starting candidate, and real travel
+ * times decide the ranking.
  */
 export function geometricMedian(points: readonly LatLng[], { iterations = 200, toleranceKm = 0.001 } = {}): LatLng {
   if (points.length === 0) throw new Error('geometricMedian needs at least one point')

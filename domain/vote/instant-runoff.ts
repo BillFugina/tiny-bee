@@ -66,7 +66,8 @@ export function instantRunoff(candidates: readonly CandidateId[], ballots: reado
   const rounds: Round[] = []
 
   while (continuing.size > 0) {
-    const tallies: Record<CandidateId, number> = {}
+    // No prototype, so an id like "__proto__" or "constructor" is just a key.
+    const tallies: Record<CandidateId, number> = Object.create(null)
     for (const id of unique) if (continuing.has(id)) tallies[id] = 0
 
     let active = 0

@@ -69,6 +69,13 @@ describe('instantRunoff', () => {
     // a has 2 of 3: a majority straight away.
     expect(result.rounds).toHaveLength(1)
   })
+
+  it('counts ids that clash with built-in object keys', () => {
+    const result = instantRunoff(['__proto__', 'constructor'], [['__proto__'], ['__proto__'], ['constructor']])
+    expect(result.winner).toBe('__proto__')
+    expect(result.rounds[0]?.tallies).toEqual({ ['__proto__']: 2, constructor: 1 })
+    expect(Object.keys(result.rounds[0]!.tallies)).toEqual(['__proto__', 'constructor'])
+  })
 })
 
 // Property-based tests: random elections, checked against rules any correct count must keep.
