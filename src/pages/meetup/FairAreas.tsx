@@ -1,7 +1,8 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { formatMinutes } from '../../lib/format'
 import { useTRPC } from '../../lib/trpc'
+import { AddToShortlist } from './AddToShortlist'
 
 const WEIGHTS = [
   { value: 0, label: 'Shortest longest drive' },
@@ -17,6 +18,21 @@ export function FairAreas({ meetupId }: { meetupId: string }) {
   const averageWeight = WEIGHTS[step]!.value
   const fair = useQuery(
     trpc.meetups.fairAreas.queryOptions({ meetupId, averageWeight }, { placeholderData: keepPreviousData }),
+  )
+  const shortlist = useQuery(trpc.shortlist.list.queryOptions({ meetupId }))
+  const listed = new Set(shortlist.data?.items.map((i) => String(i.townId)))
+  const canAdd = (area: Area) =>
+    shortlist.data?.phase === 'planning' &&
+    !area.isMidpoint &&
+    !listed.has(area.id) &&
+    shortlist.data.items.length < shortlist.data.max
+  const item = (area: Area) => (
+    <AreaItem
+      key={area.id}
+      area={area}
+      action={canAdd(area) ? <AddToShortlist meetupId={meetupId} townId={Number(area.id)} /> : null}
+      listed={listed.has(area.id)}
+    />
   )
 
   return (
@@ -49,19 +65,11 @@ export function FairAreas({ meetupId }: { meetupId: string }) {
             </span>
           </label>
           {fair.data.areas.length ? (
-            <ol className="areas">
-              {fair.data.areas.map((area) => (
-                <AreaItem key={area.id} area={area} />
-              ))}
-            </ol>
+            <ol className="areas">{fair.data.areas.map(item)}</ol>
           ) : (
             <>
               <p>Nowhere fits everyone's drive limit. These come closest:</p>
-              <ol className="areas">
-                {fair.data.closestMisses.map((area) => (
-                  <AreaItem key={area.id} area={area} />
-                ))}
-              </ol>
+              <ol className="areas">{fair.data.closestMisses.map(item)}</ol>
             </>
           )}
           {fair.data.waitingOn.length ? (
@@ -85,10 +93,11 @@ type Area = {
   times: { name: string; isMe: boolean; minutes: number; maxMinutes: number }[]
 }
 
-function AreaItem({ area }: { area: Area }) {
+function AreaItem({ area, action, listed }: { area: Area; action: ReactNode; listed: boolean }) {
   return (
     <li>
       <strong>{area.isMidpoint ? 'The halfway point (no town nearby)' : area.name}</strong>
+      {listed ? <span className="muted small"> · on the shortlist</span> : null}
       <span className="muted">
         {' '}
         · longest {formatMinutes(area.longest)}, average {formatMinutes(area.average)}
@@ -101,6 +110,7 @@ function AreaItem({ area }: { area: Area }) {
           </li>
         ))}
       </ul>
+      {action}
     </li>
   )
 }

@@ -5,7 +5,9 @@ import { formatMinutes } from '../lib/format'
 import { useTRPC } from '../lib/trpc'
 import { FairAreas } from './meetup/FairAreas'
 import { ShareLink } from './meetup/ShareLink'
+import { Shortlist } from './meetup/Shortlist'
 import { StartForm } from './meetup/StartForm'
+import { Vote } from './meetup/Vote'
 
 export function MeetupPage() {
   const { meetupId = '' } = useParams()
@@ -73,10 +75,19 @@ function MemberView({ meetupId }: { meetupId: string }) {
   if (!meetup.data) return <p className="error">{meetup.error?.message ?? 'Could not load this meetup.'}</p>
 
   const me = meetup.data.members.find((m) => m.isMe)
+  const planning = meetup.data.phase === 'planning'
+  const vote = me ? <Vote meetupId={meetupId} userId={me.userId} /> : null
+  const shortlist = <Shortlist meetupId={meetupId} />
   return (
     <section className="stack">
       <h1>{meetup.data.title}</h1>
       <ShareLink />
+      {planning ? null : (
+        <>
+          {vote}
+          {shortlist}
+        </>
+      )}
 
       <div className="card">
         <h2>Who's coming</h2>
@@ -105,6 +116,12 @@ function MemberView({ meetupId }: { meetupId: string }) {
         />
       ) : null}
       <FairAreas meetupId={meetupId} />
+      {planning ? (
+        <>
+          {shortlist}
+          {vote}
+        </>
+      ) : null}
     </section>
   )
 }
