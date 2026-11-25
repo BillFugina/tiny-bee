@@ -5,9 +5,20 @@ places that are fair for everyone, and runs the vote. Members can also take part
 through their own agents over MCP.
 
 What works so far: sign-in, creating a meetup and sharing its link, joining
-by that link, each member's starting town and longest drive, and a ranked list
-of the fairest places to meet. The fairness engine and the ranked-choice vote
-count are in `domain/`. The vote itself, the private agent and MCP come next.
+by that link, each member's starting town and longest drive, a ranked list of
+the fairest places to meet, a shortlist, and an anonymous ranked-choice vote
+with a round-by-round reveal. The private agent and MCP come next.
+
+### How the vote stays anonymous
+
+When a member votes, one SQL statement writes two unlinked rows: a receipt
+(meetup and member, so turnout and "already voted" work) and a ballot (meetup,
+ranking, and a hash of a one-time token). Neither has a timestamp. The token
+goes back to the voter's browser and is the only way to see or change that
+ballot before voting closes. Turnout is shown during the vote, but no totals.
+The honest limit: someone with database access while voting is open could try
+to match rows by insert order or timing, so this is privacy from other
+members, not from the operator.
 
 ## Stack
 
@@ -28,6 +39,7 @@ Better Auth's MCP plugin as the OAuth server for members' agents.
 ```
 api/            Vercel functions (thin wrappers around server/handlers.ts)
 server/         tRPC routers, Better Auth, Drizzle schema and client, env
+server/meetups/ meetup logic the routers call: members, shortlist, vote
 shared/         zod schemas used by both the browser and the server
 domain/         pure logic with no I/O: the fairness engine and the instant-runoff count
 src/            React app
