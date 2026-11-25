@@ -8,6 +8,7 @@ import type { AppRouter } from '../server/routers/index.js'
 import { TRPCProvider } from './lib/trpc'
 import { Layout } from './pages/Layout'
 import { HomePage } from './pages/HomePage'
+import { MeetupPage } from './pages/MeetupPage'
 import { SignInPage } from './pages/SignInPage'
 import './styles.css'
 
@@ -17,6 +18,7 @@ const router = createBrowserRouter([
     children: [
       { path: '/', element: <HomePage /> },
       { path: '/sign-in', element: <SignInPage /> },
+      { path: '/m/:meetupId', element: <MeetupPage /> },
     ],
   },
 ])
