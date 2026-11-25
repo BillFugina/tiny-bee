@@ -28,10 +28,11 @@ Better Auth's MCP plugin as the OAuth server for members' agents.
 api/            Vercel functions (thin wrappers around server/handlers.ts)
 server/         tRPC routers, Better Auth, Drizzle schema and client, env
 shared/         zod schemas used by both the browser and the server
+domain/         pure logic with no I/O: the fairness engine and the instant-runoff count
 src/            React app
 drizzle/        generated SQL migrations (commit these)
 scripts/        dev API server and migration runner (TypeScript, run with tsx)
-tests/          Vitest
+tests/          Vitest, with fast-check property tests for the domain logic
 ```
 
 ## Run it locally
