@@ -4,9 +4,10 @@ A group meetup planner where an agent talks with each member privately, finds
 places that are fair for everyone, and runs the vote. Members can also take part
 through their own agents over MCP.
 
-This branch is the deployable skeleton: sign-in, a typed API, a database with
-migrations, CI, and a preview deploy for every branch. The planner itself
-(fairness engine, ranked-choice vote, the private agent, MCP) comes next.
+What works so far: sign-in, creating a meetup and sharing its link, joining
+by that link, each member's starting town and longest drive, and a ranked list
+of the fairest places to meet. The fairness engine and the ranked-choice vote
+count are in `domain/`. The vote itself, the private agent and MCP come next.
 
 ## Stack
 
