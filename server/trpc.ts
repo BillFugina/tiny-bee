@@ -2,6 +2,7 @@ import { initTRPC, TRPCError } from '@trpc/server'
 import superjson from 'superjson'
 import { ZodError } from 'zod'
 import type { Db } from './db/client.js'
+import type { TownDirectory } from './places/directory.js'
 
 export interface SessionUser {
   id: string
@@ -12,6 +13,7 @@ export interface SessionUser {
 export interface Context {
   db: Db
   user: SessionUser | null
+  towns: TownDirectory
 }
 
 const t = initTRPC.context<Context>().create({

@@ -4,9 +4,10 @@ A group meetup planner where an agent talks with each member privately, finds
 places that are fair for everyone, and runs the vote. Members can also take part
 through their own agents over MCP.
 
-This branch is the deployable skeleton: sign-in, a typed API, a database with
-migrations, CI, and a preview deploy for every branch. The planner itself
-(fairness engine, ranked-choice vote, the private agent, MCP) comes next.
+What works so far: sign-in, creating a meetup and sharing its link, joining
+by that link, each member's starting town and longest drive, and a ranked list
+of the fairest places to meet. The fairness engine and the ranked-choice vote
+count are in `domain/`. The vote itself, the private agent and MCP come next.
 
 ## Stack
 
@@ -31,7 +32,7 @@ shared/         zod schemas used by both the browser and the server
 domain/         pure logic with no I/O: the fairness engine and the instant-runoff count
 src/            React app
 drizzle/        generated SQL migrations (commit these)
-scripts/        dev API server and migration runner (TypeScript, run with tsx)
+scripts/        dev API server, migration runner and town list builder (TypeScript, run with tsx)
 tests/          Vitest, with fast-check property tests for the domain logic
 ```
 
@@ -84,3 +85,15 @@ CI fails if the schema and the migrations disagree.
 | `npm run db:generate`             | New migration from the schema                          |
 | `npm run db:migrate`              | Apply migrations to `DATABASE_URL`                     |
 | `npm run db:studio`               | Drizzle Studio                                         |
+
+## Town data
+
+Members pick their starting town from `server/places/towns.json`, a trimmed
+extract of [GeoNames](https://www.geonames.org/) (the `cities1000` set, via the
+[`all-the-cities`](https://github.com/zeke/all-the-cities) package). It keeps
+every US town the set has, plus places elsewhere with at least 15,000 people.
+`npm run towns:build` regenerates it.
+
+GeoNames data is licensed under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), so the app credits
+GeoNames in its footer. Keep that credit if you reuse the data.

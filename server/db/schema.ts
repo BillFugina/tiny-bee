@@ -1,4 +1,17 @@
-import { boolean, index, pgEnum, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
+import {
+  boolean,
+  check,
+  doublePrecision,
+  index,
+  integer,
+  pgEnum,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  uuid,
+} from 'drizzle-orm/pg-core'
 
 const timestamps = {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -98,6 +111,21 @@ export const meetupMember = pgTable(
       .references(() => user.id, { onDelete: 'cascade' }),
     role: memberRole('role').notNull().default('member'),
     joinedAt: timestamp('joined_at', { withTimezone: true }).notNull().defaultNow(),
+    // Where this member starts from and how far they'll go. Null until they say.
+    // The town's name and coordinates are copied in, so a data refresh can't move anyone.
+    startTownId: integer('start_town_id'),
+    startLabel: text('start_label'),
+    startLat: doublePrecision('start_lat'),
+    startLng: doublePrecision('start_lng'),
+    maxMinutes: integer('max_minutes'),
   },
-  (t) => [primaryKey({ columns: [t.meetupId, t.userId] }), index('meetup_member_user_id_idx').on(t.userId)],
+  (t) => [
+    primaryKey({ columns: [t.meetupId, t.userId] }),
+    index('meetup_member_user_id_idx').on(t.userId),
+    // A start is all five fields or none, so no write path can leave half of one.
+    check(
+      'meetup_member_start_complete',
+      sql`num_nonnulls(${t.startTownId}, ${t.startLabel}, ${t.startLat}, ${t.startLng}, ${t.maxMinutes}) in (0, 5)`,
+    ),
+  ],
 )

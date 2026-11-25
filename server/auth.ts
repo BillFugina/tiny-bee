@@ -2,7 +2,7 @@ import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { magicLink } from 'better-auth/plugins'
 import { db, schema } from './db/client.js'
-import { appOrigin, env } from './env.js'
+import { appOrigin, env, trustedOrigins } from './env.js'
 
 function createAuth() {
   const e = env()
@@ -11,7 +11,7 @@ function createAuth() {
     secret: e.BETTER_AUTH_SECRET,
     baseURL: origin,
     basePath: '/api/auth',
-    trustedOrigins: [origin],
+    trustedOrigins: trustedOrigins(e),
     database: drizzleAdapter(db(), {
       provider: 'pg',
       schema: {

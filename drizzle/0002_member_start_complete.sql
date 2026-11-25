@@ -1,0 +1,1 @@
+ALTER TABLE "meetup_member" ADD CONSTRAINT "meetup_member_start_complete" CHECK (num_nonnulls("meetup_member"."start_town_id", "meetup_member"."start_label", "meetup_member"."start_lat", "meetup_member"."start_lng", "meetup_member"."max_minutes") in (0, 5));

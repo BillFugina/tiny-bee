@@ -1,6 +1,6 @@
 import { useForm } from '@tanstack/react-form'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { createMeetupInput } from '../../shared/schemas'
 import { authClient } from '../lib/auth-client'
 import { useTRPC } from '../lib/trpc'
@@ -42,6 +42,7 @@ function describeHealth(health: {
 function MyMeetups() {
   const trpc = useTRPC()
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const meetups = useQuery(trpc.meetups.listMine.queryOptions())
   const create = useMutation(
     trpc.meetups.create.mutationOptions({
@@ -53,8 +54,9 @@ function MyMeetups() {
     defaultValues: { title: '' },
     validators: { onSubmit: createMeetupInput },
     onSubmit: async ({ value, formApi }) => {
-      await create.mutateAsync(value)
+      const created = await create.mutateAsync(value)
       formApi.reset()
+      await navigate(`/m/${created.id}`)
     },
   })
 
@@ -103,7 +105,7 @@ function MyMeetups() {
         <ul>
           {meetups.data.map((m) => (
             <li key={m.id}>
-              {m.title} <span className="muted">({m.role})</span>
+              <Link to={`/m/${m.id}`}>{m.title}</Link> <span className="muted">({m.role})</span>
             </li>
           ))}
         </ul>

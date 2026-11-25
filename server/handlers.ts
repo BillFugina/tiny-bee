@@ -1,6 +1,7 @@
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch'
 import { auth } from './auth.js'
 import { lazyDb } from './db/client.js'
+import { towns } from './places/towns.js'
 import { appRouter } from './routers/index.js'
 import type { Context } from './trpc.js'
 
@@ -30,7 +31,7 @@ export async function createContext(request: Request): Promise<Context> {
     // Misconfigured auth shouldn't take down public procedures like health.
     console.error('[auth] session lookup failed:', error)
   }
-  return { db: lazyDb, user }
+  return { db: lazyDb, user, towns: towns() }
 }
 
 export function handleTrpc(request: Request): Promise<Response> {

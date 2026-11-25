@@ -1,7 +1,7 @@
 import { useForm } from '@tanstack/react-form'
 import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useNavigate, useSearchParams } from 'react-router'
 import { z } from 'zod'
 import { authClient } from '../lib/auth-client'
 
@@ -18,6 +18,8 @@ export function SignInPage() {
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const navigate = useNavigate()
+  const [params] = useSearchParams()
+  const next = safeNext(params.get('next'))
   const queryClient = useQueryClient()
 
   const form = useForm({
@@ -38,7 +40,7 @@ export function SignInPage() {
         return
       }
       await queryClient.invalidateQueries()
-      await navigate('/')
+      await navigate(next)
     },
   })
 
@@ -49,7 +51,7 @@ export function SignInPage() {
       setError('Enter your email first')
       return
     }
-    const result = await authClient.signIn.magicLink({ email, callbackURL: '/' })
+    const result = await authClient.signIn.magicLink({ email, callbackURL: next })
     if (result.error) setError(result.error.message || `Could not send the link (HTTP ${result.error.status})`)
     else setNotice('Link sent. (No email provider yet: it is in the server log.)')
   }
@@ -107,4 +109,9 @@ export function SignInPage() {
       </button>
     </section>
   )
+}
+
+/** Only same-site paths, so a crafted link can't bounce people elsewhere after sign-in. */
+function safeNext(next: string | null): string {
+  return next && /^\/(?![/\\])/.test(next) ? next : '/'
 }

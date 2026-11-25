@@ -31,3 +31,20 @@ export function appOrigin(e: Env = env()): string {
   if (e.VERCEL_URL) return `https://${e.VERCEL_URL}`
   return 'http://localhost:5173'
 }
+
+/**
+ * Every origin this deployment can be opened on. A Vercel preview answers on
+ * its branch URL and on its own per-deployment URL, and Better Auth rejects
+ * sign-ups from any origin it doesn't trust ("Invalid origin"), so all of them
+ * are trusted, plus BETTER_AUTH_URL if set. Only this project's own URLs: never
+ * a wildcard like *.vercel.app, which anyone can deploy to.
+ */
+export function trustedOrigins(e: Env = env()): string[] {
+  const hosts = [e.VERCEL_BRANCH_URL, e.VERCEL_URL, e.VERCEL_PROJECT_PRODUCTION_URL]
+  const origins = [
+    appOrigin(e),
+    ...(e.BETTER_AUTH_URL ? [new URL(e.BETTER_AUTH_URL).origin] : []),
+    ...hosts.filter((h): h is string => Boolean(h)).map((h) => `https://${h}`),
+  ]
+  return [...new Set(origins.map((o) => new URL(o).origin))]
+}
