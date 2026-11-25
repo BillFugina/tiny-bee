@@ -21,16 +21,30 @@ export type Town = {
 export type TownRow = readonly [number, string, string, string, number, number, number]
 
 export interface TownDirectory {
-  /** Towns whose name starts with the query, biggest first. "Raleigh, NC" narrows by region or country. */
+  /** Towns whose name starts with the query, biggest first. "Raleigh, NC" or "Lyon, France" narrows by region or country. */
   search(query: string, limit?: number): Town[]
   get(id: number): Town | undefined
   /** Towns within radiusKm of a point, nearest first. */
   near(center: LatLng, radiusKm: number): Town[]
 }
 
-/** "Raleigh, NC" in the US, "Lyon, FR" elsewhere. */
+/**
+ * "Raleigh, NC" in the US, "Lyon, France" elsewhere. Country names are spelled
+ * out so a Canadian "London, CA" can't be mistaken for one in California.
+ */
 export function townLabel(town: Pick<Town, 'name' | 'region' | 'country'>): string {
-  return town.country === 'US' && town.region ? `${town.name}, ${town.region}` : `${town.name}, ${town.country}`
+  if (town.country === 'US') return town.region ? `${town.name}, ${town.region}` : `${town.name}, United States`
+  return `${town.name}, ${countryName(town.country)}`
+}
+
+const countryNames = new Intl.DisplayNames(['en'], { type: 'region' })
+
+function countryName(code: string): string {
+  try {
+    return countryNames.of(code) ?? code
+  } catch {
+    return code // not a valid region code
+  }
 }
 
 export function createTownDirectory(rows: readonly TownRow[]): TownDirectory {
@@ -44,7 +58,13 @@ export function createTownDirectory(rows: readonly TownRow[]): TownDirectory {
     population,
   }))
   const byId = new Map(towns.map((t) => [t.id, t]))
-  const keys = towns.map((t) => ({ town: t, name: fold(t.name), region: fold(t.region), country: fold(t.country) }))
+  const keys = towns.map((t) => ({
+    town: t,
+    name: fold(t.name),
+    region: fold(t.region),
+    country: fold(t.country),
+    countryName: fold(countryName(t.country)),
+  }))
 
   return {
     search(query, limit = 8) {
@@ -53,7 +73,13 @@ export function createTownDirectory(rows: readonly TownRow[]): TownDirectory {
       const qualifier = rest.join(' ').trim()
       return keys
         .filter((k) => k.name.startsWith(namePart))
-        .filter((k) => !qualifier || k.region.startsWith(qualifier) || k.country.startsWith(qualifier))
+        .filter(
+          (k) =>
+            !qualifier ||
+            k.region.startsWith(qualifier) ||
+            k.country.startsWith(qualifier) ||
+            k.countryName.startsWith(qualifier),
+        )
         .sort(
           (a, b) =>
             Number(b.name === namePart) - Number(a.name === namePart) ||

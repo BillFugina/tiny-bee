@@ -16,10 +16,17 @@ describe('town search', () => {
   it('narrows by region or country after a comma', () => {
     expect(towns.search('westford, ma').map(townLabel)).toEqual(['Westford, MA'])
     expect(towns.search('west, va').map(townLabel)).toEqual(['Westfield, VA'])
+    expect(towns.search('sao, br').map(townLabel)).toEqual(['São Bento, Brazil'])
+    expect(towns.search('sao, braz').map(townLabel)).toEqual(['São Bento, Brazil'])
+  })
+
+  it('spells out countries outside the US, so codes like CA stay unambiguous', () => {
+    expect(townLabel({ name: 'London', region: '', country: 'CA' })).toBe('London, Canada')
+    expect(townLabel({ name: 'London', region: 'OH', country: 'US' })).toBe('London, OH')
   })
 
   it('ignores case and accents', () => {
-    expect(towns.search('SAO B').map(townLabel)).toEqual(['São Bento, BR'])
+    expect(towns.search('SAO B').map(townLabel)).toEqual(['São Bento, Brazil'])
   })
 
   it('needs at least two letters', () => {
