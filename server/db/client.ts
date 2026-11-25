@@ -3,7 +3,6 @@ import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core'
 import { drizzle as drizzleNeonHttp } from 'drizzle-orm/neon-http'
 import { drizzle as drizzleNodePg } from 'drizzle-orm/node-postgres'
 import pg from 'pg'
-import { env } from '../env.js'
 import * as schema from './schema.js'
 
 export type Db = PgDatabase<PgQueryResultHKT, typeof schema>
@@ -30,9 +29,26 @@ export function createDb(url: string): Db {
 
 let cached: Db | undefined
 
+/** The app's database. Reads DATABASE_URL on first use, not at import time. */
 export function db(): Db {
-  cached ??= createDb(env().DATABASE_URL)
+  if (!cached) {
+    const url = process.env.DATABASE_URL
+    if (!url) throw new Error('DATABASE_URL is not set')
+    cached = createDb(url)
+  }
   return cached
 }
+
+/**
+ * A Db that connects on first use. Lets request contexts be built even when the
+ * database is misconfigured, so the health check can still answer and say why.
+ */
+export const lazyDb: Db = new Proxy({} as Db, {
+  get(_target, prop) {
+    const real = db()
+    const value = Reflect.get(real, prop, real) as unknown
+    return typeof value === 'function' ? value.bind(real) : value
+  },
+})
 
 export { schema }

@@ -34,7 +34,7 @@ export function SignInPage() {
             })
           : await authClient.signIn.email({ email: value.email, password: value.password })
       if (result.error) {
-        setError(result.error.message ?? 'Something went wrong')
+        setError(result.error.message || `Something went wrong (HTTP ${result.error.status})`)
         return
       }
       await queryClient.invalidateQueries()
@@ -50,7 +50,7 @@ export function SignInPage() {
       return
     }
     const result = await authClient.signIn.magicLink({ email, callbackURL: '/' })
-    if (result.error) setError(result.error.message ?? 'Could not send the link')
+    if (result.error) setError(result.error.message || `Could not send the link (HTTP ${result.error.status})`)
     else setNotice('Link sent. (No email provider yet: it is in the server log.)')
   }
 

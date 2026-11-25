@@ -13,9 +13,7 @@ export function HomePage() {
   return (
     <section>
       <h1>Plan a meetup everyone can actually make</h1>
-      <p className="muted">
-        API: {health.isPending ? 'checking…' : health.data?.ok ? 'up' : `down (${health.error?.message ?? 'unknown'})`}
-      </p>
+      <p className="muted">API: {describeHealth(health)}</p>
       {isPending ? null : session ? (
         <MyMeetups />
       ) : (
@@ -25,6 +23,20 @@ export function HomePage() {
       )}
     </section>
   )
+}
+
+function describeHealth(health: {
+  isPending: boolean
+  error: { message: string } | null
+  data?: { ok: boolean; checks: { authSecret: boolean; database: string } }
+}): string {
+  if (health.isPending) return 'checking…'
+  if (!health.data) return `down (${health.error?.message ?? 'no response'})`
+  if (health.data.ok) return 'up'
+  const problems: string[] = []
+  if (!health.data.checks.authSecret) problems.push('BETTER_AUTH_SECRET missing or too short')
+  if (health.data.checks.database !== 'ok') problems.push(`database ${health.data.checks.database}`)
+  return `up, but ${problems.join('; ')}`
 }
 
 function MyMeetups() {

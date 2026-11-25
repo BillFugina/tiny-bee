@@ -14,9 +14,12 @@ const noDb = new Proxy({} as Db, {
 })
 
 describe('public procedures', () => {
-  it('health answers without a session or database', async () => {
+  it('health reports configuration without throwing', async () => {
     const result = await createCaller({ db: noDb, user: null }).health()
-    expect(result.ok).toBe(true)
+    expect(result.checks).toEqual({
+      authSecret: (process.env.BETTER_AUTH_SECRET ?? '').length >= 32,
+      database: expect.any(String),
+    })
   })
 
   it('me is null when signed out', async () => {

@@ -1,6 +1,6 @@
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch'
 import { auth } from './auth.js'
-import { db } from './db/client.js'
+import { lazyDb } from './db/client.js'
 import { appRouter } from './routers/index.js'
 import type { Context } from './trpc.js'
 
@@ -9,16 +9,28 @@ import type { Context } from './trpc.js'
  * local dev server both call these, so local dev runs the same code as deploys.
  */
 
-export function handleAuth(request: Request): Promise<Response> {
-  return auth().handler(request)
+export async function handleAuth(request: Request): Promise<Response> {
+  try {
+    return await auth().handler(request)
+  } catch (error) {
+    console.error('[auth] request failed:', error)
+    return Response.json(
+      { message: 'Sign-in is not working on the server right now. The function log has details.' },
+      { status: 500 },
+    )
+  }
 }
 
 export async function createContext(request: Request): Promise<Context> {
-  const session = await auth().api.getSession({ headers: request.headers })
-  return {
-    db: db(),
-    user: session ? { id: session.user.id, email: session.user.email, name: session.user.name } : null,
+  let user: Context['user'] = null
+  try {
+    const session = await auth().api.getSession({ headers: request.headers })
+    if (session) user = { id: session.user.id, email: session.user.email, name: session.user.name }
+  } catch (error) {
+    // Misconfigured auth shouldn't take down public procedures like health.
+    console.error('[auth] session lookup failed:', error)
   }
+  return { db: lazyDb, user }
 }
 
 export function handleTrpc(request: Request): Promise<Response> {
