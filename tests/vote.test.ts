@@ -80,6 +80,41 @@ describe.skipIf(!url)('shortlist and vote against Postgres', () => {
     })
   })
 
+  it('keeps the cap when places are added at the same time', async () => {
+    const { id: meetupId } = await as(organizer).meetups.create({ title: 'Cap race' })
+    await db
+      .insert(shortlistItem)
+      .values(
+        [93, 94, 95, 96, 97, 98].map((townId) => ({ meetupId, townId, label: `Town ${townId}`, lat: 35, lng: -80 })),
+      )
+    await Promise.allSettled([1, 2, 3, 4].map((townId) => as(organizer).shortlist.add({ meetupId, townId })))
+    expect((await as(organizer).shortlist.list({ meetupId })).items).toHaveLength(8)
+  })
+
+  it('never opens voting on a shortlist that changes under it', async () => {
+    for (let run = 0; run < 10; run++) {
+      const { meetupId, midway } = await meetupWithShortlist()
+      await as(organizer).shortlist.remove({
+        meetupId,
+        itemId: (await as(organizer).shortlist.list({ meetupId })).items[2]!.id,
+      })
+      // Two places left: removing one while opening must not leave a vote on one place.
+      const [removal, opening] = await Promise.allSettled([
+        as(ana).shortlist.remove({ meetupId, itemId: midway }),
+        as(organizer).vote.open({ meetupId, deadline: null }),
+      ])
+      const status = await as(organizer).vote.status({ meetupId })
+      if (status.phase === 'voting') {
+        expect(opening.status).toBe('fulfilled')
+        expect(removal.status).toBe('rejected')
+        expect(status.candidates).toHaveLength(2)
+      } else {
+        expect(status.phase).toBe('planning')
+        expect(opening.status).toBe('rejected')
+      }
+    }
+  })
+
   it('opens voting only for the organizer, with two or more places', async () => {
     const { id: meetupId } = await as(organizer).meetups.create({ title: 'Open test' })
     await as(ana).meetups.join({ meetupId })

@@ -1,10 +1,11 @@
 import { TRPCError } from '@trpc/server'
-import { and, asc, count, eq } from 'drizzle-orm'
+import { and, asc, count, eq, sql } from 'drizzle-orm'
 import { SHORTLIST_MAX } from '../../shared/schemas.js'
 import type { Db } from '../db/client.js'
-import { shortlistItem, user } from '../db/schema.js'
+import { meetup, shortlistItem, user } from '../db/schema.js'
 import { townLabel, type TownDirectory } from '../places/directory.js'
 import { getMeetupState, requireMember } from './members.js'
+import { rows } from './sql.js'
 
 /** Shortlist items in the order they were added, which is also the vote's candidate order. */
 export function listItems(db: Db, meetupId: string) {
@@ -56,24 +57,39 @@ export async function addItem(
     .select({ n: count() })
     .from(shortlistItem)
     .where(eq(shortlistItem.meetupId, input.meetupId))
-  if ((current?.n ?? 0) >= SHORTLIST_MAX) {
-    throw new TRPCError({ code: 'BAD_REQUEST', message: `The shortlist holds ${SHORTLIST_MAX} places at most.` })
+  if ((current?.n ?? 0) >= SHORTLIST_MAX) throw full()
+
+  // One statement that only writes while the meetup is still in planning. The
+  // share lock makes opening voting wait for it (see openVoting).
+  const [added] = await rows<{ id: string; label: string }>(
+    db.execute(sql`
+      with planning as (
+        select id from ${meetup} where id = ${input.meetupId} and phase = 'planning' for share
+      )
+      insert into ${shortlistItem} (meetup_id, town_id, label, lat, lng, note, added_by)
+      select id, ${town.id}, ${townLabel(town)}, ${town.lat}, ${town.lng}, ${input.note || null}, ${userId}
+      from planning
+      on conflict (meetup_id, town_id) do nothing
+      returning id, label
+    `),
+  )
+  if (!added) {
+    await requirePlanning(db, input.meetupId)
+    throw new TRPCError({ code: 'CONFLICT', message: `${townLabel(town)} is already on the shortlist.` })
   }
 
-  const [added] = await db
-    .insert(shortlistItem)
-    .values({
-      meetupId: input.meetupId,
-      townId: town.id,
-      label: townLabel(town),
-      lat: town.lat,
-      lng: town.lng,
-      note: input.note ? input.note : null,
-      addedBy: userId,
-    })
-    .onConflictDoNothing()
-    .returning({ id: shortlistItem.id, label: shortlistItem.label })
-  if (!added) throw new TRPCError({ code: 'CONFLICT', message: `${townLabel(town)} is already on the shortlist.` })
+  // Two adds at once can both pass the count above. Keep the earliest eight.
+  const [position] = await rows<{ n: number | string }>(
+    db.execute(sql`
+      select count(*) as n from ${shortlistItem} s, ${shortlistItem} mine
+      where mine.id = ${added.id} and s.meetup_id = mine.meetup_id
+        and (s.created_at, s.id) <= (mine.created_at, mine.id)
+    `),
+  )
+  if (Number(position?.n ?? 0) > SHORTLIST_MAX) {
+    await db.delete(shortlistItem).where(eq(shortlistItem.id, added.id))
+    throw full()
+  }
   return added
 }
 
@@ -86,8 +102,22 @@ export async function removeItem(db: Db, input: { meetupId: string; itemId: stri
   if (role !== 'organizer' && item.addedBy !== userId) {
     throw new TRPCError({ code: 'FORBIDDEN', message: 'Only whoever added it, or the organizer, can remove it.' })
   }
-  await db.delete(shortlistItem).where(mine)
+  const removed = await rows(
+    db.execute(sql`
+      with planning as (
+        select id from ${meetup} where id = ${input.meetupId} and phase = 'planning' for share
+      )
+      delete from ${shortlistItem} using planning
+      where ${shortlistItem.id} = ${input.itemId} and ${shortlistItem.meetupId} = planning.id
+      returning ${shortlistItem.id}
+    `),
+  )
+  if (removed.length === 0) await requirePlanning(db, input.meetupId)
   return { removed: true }
+}
+
+function full() {
+  return new TRPCError({ code: 'BAD_REQUEST', message: `The shortlist holds ${SHORTLIST_MAX} places at most.` })
 }
 
 async function requirePlanning(db: Db, meetupId: string) {
