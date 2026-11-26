@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import type { inferRouterOutputs } from '@trpc/server'
 import type { AppRouter } from '../../../server/routers/index.js'
 
@@ -7,33 +6,24 @@ type Result = NonNullable<Status['result']>
 type Round = Result['rounds'][number]
 
 export function Results({ result, turnout }: { result: Result; turnout: Status['turnout'] }) {
-  const [shown, setShown] = useState(0)
-  const round = result.rounds[shown]
+  const final = result.rounds.at(-1)
 
   return (
     <div className="card">
       <h2>{result.winner ? `The group picked ${result.winner.label}` : 'No winner'}</h2>
       <p className="muted small">
-        {turnout.voted} of {turnout.members} voted. Here is how the count went, round by round.
+        {turnout.voted} of {turnout.members} voted.
       </p>
-      {round ? <RoundView round={round} /> : <p className="muted">Nobody voted, so there was nothing to count.</p>}
+      {final ? <RoundView round={final} /> : <p className="muted">Nobody voted, so there was nothing to count.</p>}
       {result.rounds.length > 1 ? (
-        <div className="row">
-          <button type="button" className="link" disabled={shown === 0} onClick={() => setShown(shown - 1)}>
-            Previous round
-          </button>
-          <span className="muted small">
-            Round {shown + 1} of {result.rounds.length}
-          </span>
-          <button
-            type="button"
-            className="link"
-            disabled={shown === result.rounds.length - 1}
-            onClick={() => setShown(shown + 1)}
-          >
-            Next round
-          </button>
-        </div>
+        <details className="count-steps">
+          <summary>How the count went</summary>
+          <ol>
+            {result.rounds.map((round, i) => (
+              <li key={i}>{explain(round)}</li>
+            ))}
+          </ol>
+        </details>
       ) : null}
     </div>
   )
