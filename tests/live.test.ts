@@ -6,7 +6,7 @@ import { inArray } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { createDb, type Db } from '../server/db/client.js'
 import { user } from '../server/db/schema.js'
-import { ablyLiveUpdates, meetupChannel, noLiveUpdates, type LiveUpdates } from '../server/live/live.js'
+import { ablyLiveUpdates, afterResponse, meetupChannel, noLiveUpdates, type LiveUpdates } from '../server/live/live.js'
 import { createMcpServer } from '../server/mcp/server.js'
 import { createTownDirectory } from '../server/places/directory.js'
 import { appRouter } from '../server/routers/index.js'
@@ -166,5 +166,30 @@ describe.skipIf(!url)('live updates against Postgres', () => {
     expect(live.published).toEqual([meetupId])
     expect((await call('get_meetup', { meetupId })).isError).not.toBe(true)
     expect(live.published).toEqual([meetupId])
+  })
+})
+
+describe('afterResponse', () => {
+  const key = Symbol.for('@vercel/request-context')
+  const globals = globalThis as Record<symbol, unknown>
+
+  it('hands the publish to Vercel waitUntil so the response does not wait', async () => {
+    const handed: Promise<unknown>[] = []
+    globals[key] = { get: () => ({ waitUntil: (p: Promise<unknown>) => handed.push(p) }) }
+    try {
+      let finish!: () => void
+      const slow = new Promise<void>((resolve) => (finish = resolve))
+      await afterResponse(slow) // resolves without waiting for the slow publish
+      expect(handed).toEqual([slow])
+      finish()
+    } finally {
+      delete globals[key]
+    }
+  })
+
+  it('waits for the publish when not on Vercel', async () => {
+    let done = false
+    await afterResponse(Promise.resolve().then(() => void (done = true)))
+    expect(done).toBe(true)
   })
 })

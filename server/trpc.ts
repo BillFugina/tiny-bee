@@ -2,7 +2,7 @@ import { initTRPC, TRPCError } from '@trpc/server'
 import superjson from 'superjson'
 import { ZodError } from 'zod'
 import type { PlannerConfig, PlannerModel } from './agent/model.js'
-import type { LiveUpdates } from './live/live.js'
+import { afterResponse, type LiveUpdates } from './live/live.js'
 import type { Db } from './db/client.js'
 import type { TownDirectory } from './places/directory.js'
 
@@ -48,14 +48,15 @@ export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
 
 /**
  * For changes others in the meetup should see: once the change succeeds,
- * everyone with the meetup open is told to refresh. The input's meetupId has
+ * everyone with the meetup open is told to refresh, without holding up the
+ * response. The input's meetupId has
  * already passed validation and the procedure's own membership check by then.
  */
 export const meetupChangeProcedure = protectedProcedure.use(async ({ ctx, next, getRawInput }) => {
   const result = await next()
   if (result.ok && ctx.live) {
     const input = (await getRawInput()) as { meetupId?: unknown } | undefined
-    if (typeof input?.meetupId === 'string') await ctx.live.publishChange(input.meetupId)
+    if (typeof input?.meetupId === 'string') await afterResponse(ctx.live.publishChange(input.meetupId))
   }
   return result
 })

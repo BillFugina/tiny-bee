@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { castBallotInput, createMeetupInput } from '../../shared/schemas.js'
 import { plannerTools, type PlannerToolName, type ToolContext } from '../agent/tools.js'
 import type { Db } from '../db/client.js'
-import type { LiveUpdates } from '../live/live.js'
+import { afterResponse, type LiveUpdates } from '../live/live.js'
 import { createMeetup, joinMeetup, listMyMeetups } from '../meetups/meetups.js'
 import { castBallot } from '../meetups/vote.js'
 import type { TownDirectory } from '../places/directory.js'
@@ -87,7 +87,7 @@ export function createMcpServer(ctx: McpContext): McpServer {
   const server = new McpServer({ name: 'tiny-bee', version: '1.0.0' }, { instructions: INSTRUCTIONS })
   /** After a change succeeds, others with the meetup open refresh. */
   const changed = async (id: string, value: unknown) => {
-    await ctx.live?.publishChange(id)
+    if (ctx.live) await afterResponse(ctx.live.publishChange(id))
     return value
   }
   const toolCtx = (id: string): ToolContext => ({

@@ -99,3 +99,19 @@ async function safeText(response: Response): Promise<string> {
     return ''
   }
 }
+
+/**
+ * Lets a publish finish after the response goes out, so a slow or unreachable
+ * Ably never holds up the change a member just made. On Vercel this hands the
+ * promise to the function's waitUntil (the same request context that
+ * @vercel/functions reads), which keeps the function alive until it settles.
+ * Elsewhere (local dev, tests) it simply waits, bounded by the publish timeout.
+ */
+export function afterResponse(task: Promise<void>): Promise<void> {
+  const holder = (globalThis as Record<symbol, unknown>)[Symbol.for('@vercel/request-context')] as
+    { get?: () => { waitUntil?: (promise: Promise<unknown>) => void } | undefined } | undefined
+  const waitUntil = holder?.get?.()?.waitUntil
+  if (!waitUntil) return task
+  waitUntil(task)
+  return Promise.resolve()
+}
