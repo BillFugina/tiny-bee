@@ -60,6 +60,15 @@ Wish list:
   updates channel.
 - **Mobile app for background location:** the web app can share location only
   while it's open on the phone, so sharing in the background needs a native app.
+- **Fairness over time:** for groups that meet often, whoever drove farthest last
+  time gets a shorter drive next time.
+- **Carpools:** pair up members whose routes overlap and suggest a pickup point.
+- **Leave-by times:** use traffic at the meetup hour to tell each member when to
+  set off.
+- **Venue filters:** dog-friendly, kid-friendly, accessible or quiet, drawn from
+  members' check-ins.
+- **Repeat a meetup:** start the next one with the same group and settings in one
+  tap.
 
 ## How it works
 
