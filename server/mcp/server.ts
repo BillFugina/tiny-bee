@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { castBallotInput, createMeetupInput } from '../../shared/schemas.js'
 import { plannerTools, type PlannerToolName, type ToolContext } from '../agent/tools.js'
 import type { Db } from '../db/client.js'
+import { afterResponse, type LiveUpdates } from '../live/live.js'
 import { createMeetup, joinMeetup, listMyMeetups } from '../meetups/meetups.js'
 import { castBallot } from '../meetups/vote.js'
 import type { TownDirectory } from '../places/directory.js'
@@ -19,6 +20,8 @@ export interface McpContext {
   towns: TownDirectory
   userId: string
   origin: string | null
+  /** Tells members' open pages to refresh after a change. */
+  live?: LiveUpdates
 }
 
 const INSTRUCTIONS = `tiny-bee helps a group pick a place to meet that's a fair drive for everyone. You are acting for one member, the person who connected you.
@@ -82,6 +85,11 @@ export function meetupIdFromLink(value: string): string | null {
 
 export function createMcpServer(ctx: McpContext): McpServer {
   const server = new McpServer({ name: 'tiny-bee', version: '1.0.0' }, { instructions: INSTRUCTIONS })
+  /** After a change succeeds, others with the meetup open refresh. */
+  const changed = async (id: string, value: unknown) => {
+    if (ctx.live) await afterResponse(ctx.live.publishChange(id))
+    return value
+  }
   const toolCtx = (id: string): ToolContext => ({
     db: ctx.db,
     towns: ctx.towns,
@@ -137,7 +145,7 @@ export function createMcpServer(ctx: McpContext): McpServer {
         const id = meetupIdFromLink(invite)
         if (!id) throw new TRPCError({ code: 'BAD_REQUEST', message: "That isn't a tiny-bee invite link." })
         await joinMeetup(ctx.db, id, ctx.userId)
-        return { joined: true, meetupId: id }
+        return changed(id, { joined: true, meetupId: id })
       }),
   )
 
@@ -146,13 +154,16 @@ export function createMcpServer(ctx: McpContext): McpServer {
     const needsMeetup = !NO_MEETUP.has(name)
     const inputSchema = needsMeetup ? base.extend({ meetupId }) : base
     const runTool = t.run as (c: ToolContext, i: unknown) => Promise<unknown>
+    const writes = !plannerToolAnnotations[name].readOnlyHint
     server.registerTool(
       name,
       { description: t.description, inputSchema, annotations: plannerToolAnnotations[name] },
       (input: Record<string, unknown>) =>
-        run(() => {
+        run(async () => {
           const { meetupId: id, ...rest } = input
-          return runTool(toolCtx(typeof id === 'string' ? id : ''), rest)
+          const meetup = typeof id === 'string' ? id : ''
+          const value = await runTool(toolCtx(meetup), rest)
+          return writes && meetup ? changed(meetup, value) : value
         }),
     )
   }
@@ -174,7 +185,7 @@ export function createMcpServer(ctx: McpContext): McpServer {
       run(async () => {
         try {
           const cast = await castBallot(ctx.db, { meetupId: id, ranking, token: ballotToken }, ctx.userId)
-          return { ballotToken: cast.token, changed: cast.changed, ranked: ranking.length }
+          return changed(id, { ballotToken: cast.token, changed: cast.changed, ranked: ranking.length })
         } catch (error) {
           // The app's own wording points at the browser; an agent needs the token instead.
           if (error instanceof TRPCError && error.code === 'CONFLICT') {

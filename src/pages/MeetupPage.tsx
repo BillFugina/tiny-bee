@@ -9,6 +9,7 @@ import { ShareLink } from './meetup/ShareLink'
 import { Shortlist } from './meetup/Shortlist'
 import { StartForm } from './meetup/StartForm'
 import { Vote } from './meetup/Vote'
+import { useLiveMeetup } from './meetup/useLiveMeetup'
 
 export function MeetupPage() {
   const { meetupId = '' } = useParams()
@@ -71,6 +72,7 @@ function SignedInMeetup({ meetupId }: { meetupId: string }) {
 function MemberView({ meetupId }: { meetupId: string }) {
   const trpc = useTRPC()
   const meetup = useQuery(trpc.meetups.get.queryOptions({ meetupId }))
+  useLiveMeetup(meetupId)
 
   if (meetup.isPending) return <p className="muted">Loading…</p>
   if (!meetup.data) return <p className="error">{meetup.error?.message ?? 'Could not load this meetup.'}</p>

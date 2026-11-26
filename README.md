@@ -41,6 +41,16 @@ has no ballot tools at all. It adds to the shortlist only when the member asks.
 Without an `ANTHROPIC_API_KEY` the chat shows as switched off and the rest of
 the app works as before.
 
+### How pages stay current
+
+When a member joins, sets their start, changes the shortlist or votes, from
+the app or through their own agent, the server publishes a bare `changed`
+message to that meetup's Ably channel (`meetup:<id>`). Each open meetup page
+listens with a short-lived token that can only subscribe to that one channel,
+which the server hands out to members only, and refetches through tRPC as
+usual. No meetup data goes through Ably. Without an `ABLY_API_KEY` pages
+refresh only after your own changes, and everything else works as before.
+
 ### How the vote stays anonymous
 
 When a member votes, one SQL statement writes two unlinked rows: a receipt
@@ -122,7 +132,10 @@ CI fails if the schema and the migrations disagree.
    the planner chat. `PLANNER_MODEL` and `PLANNER_EFFORT` override its model
    (default `claude-haiku-5-5`, the cheapest; `claude-sonnet-5-5` or
    `claude-opus-5-5` cost more) and effort (default `low`).
-5. Push a branch: Vercel builds a preview, the build migrates that preview's
+5. Optional: add `ABLY_API_KEY` for Production and Preview so pages refresh
+   by themselves. Create the key in Ably with only Publish and Subscribe, and
+   limit it to channels matching `meetup:*`.
+6. Push a branch: Vercel builds a preview, the build migrates that preview's
    Neon branch (`npm run vercel-build`), and the PR gets a link.
 
 ## Scripts

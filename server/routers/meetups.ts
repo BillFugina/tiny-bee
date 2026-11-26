@@ -8,7 +8,7 @@ import {
   setMyStart,
 } from '../meetups/meetups.js'
 import { createMeetupInput, fairAreasInput, meetupIdInput, setStartInput } from '../../shared/schemas.js'
-import { protectedProcedure, router } from '../trpc.js'
+import { meetupChangeProcedure, protectedProcedure, router } from '../trpc.js'
 
 export const meetupsRouter = router({
   create: protectedProcedure
@@ -18,13 +18,13 @@ export const meetupsRouter = router({
   preview: protectedProcedure
     .input(meetupIdInput)
     .query(({ ctx, input }) => previewMeetup(ctx.db, input.meetupId, ctx.user.id)),
-  join: protectedProcedure
+  join: meetupChangeProcedure
     .input(meetupIdInput)
     .mutation(({ ctx, input }) => joinMeetup(ctx.db, input.meetupId, ctx.user.id)),
   get: protectedProcedure
     .input(meetupIdInput)
     .query(({ ctx, input }) => getMeetup(ctx.db, input.meetupId, ctx.user.id)),
-  setMyStart: protectedProcedure
+  setMyStart: meetupChangeProcedure
     .input(setStartInput)
     .mutation(({ ctx, input }) => setMyStart(ctx.db, ctx.towns, input, ctx.user.id)),
   fairAreas: protectedProcedure
