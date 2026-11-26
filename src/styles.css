@@ -295,3 +295,42 @@ textarea {
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+.mono,
+code,
+pre {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.9em;
+}
+code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+pre {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  overflow-x: auto;
+}
+pre code {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+ol.steps,
+ul.steps {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 6px;
+}
+.callout {
+  margin-top: 24px;
+  border-color: var(--accent);
+}
+.callout p {
+  margin: 0;
+}

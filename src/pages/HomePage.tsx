@@ -21,7 +21,24 @@ export function HomePage() {
           <Link to="/sign-in">Sign in</Link> to start a meetup.
         </p>
       )}
+      <AgentCallout />
     </section>
+  )
+}
+
+/** Points members to the page on connecting their own agent over MCP. */
+function AgentCallout() {
+  return (
+    <aside className="card callout" aria-labelledby="agent-callout">
+      <h2 id="agent-callout">Plan with your own AI agent</h2>
+      <p>
+        Use Claude, Codex or another agent you already have? Connect it to tiny-bee and it can join your meetups, set
+        your start and cast your vote once you approve.
+      </p>
+      <p>
+        <Link to="/agents">How to connect your agent</Link>
+      </p>
+    </aside>
   )
 }
 
