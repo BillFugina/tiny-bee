@@ -297,6 +297,59 @@ describe.skipIf(!url)('check-in against Postgres', () => {
     expect((await as(ana, planner).checkin.history({ meetupId })).messages.map((m) => m.text)).toEqual(['one', 'Done.'])
   })
 
+  it('lets a stale lease be taken over without the old turn saving or clearing the new one', async () => {
+    const meetupId = await newMeetup('Takeover')
+    const gated = (answer: string) => {
+      let open!: () => void
+      const gate = new Promise<void>((r) => (open = r))
+      const model: PlannerModel = {
+        async create() {
+          await gate
+          return reply('end_turn', [text(answer)])
+        },
+      }
+      return { open, planner: { model, config: DEFAULT_PLANNER } }
+    }
+    const claim = async () => {
+      const [row] = await db
+        .select({ claim: meetupMember.checkinClaim })
+        .from(meetupMember)
+        .where(and(eq(meetupMember.meetupId, meetupId), eq(meetupMember.userId, ana.id)))
+      return row?.claim ?? null
+    }
+
+    const old = gated('Old reply.')
+    const oldTurn = as(ana, old.planner).checkin.send({ meetupId, text: 'first' })
+    await expect.poll(claim).not.toBeNull()
+    const oldClaim = await claim()
+
+    // The first turn hangs past the lease timeout without renewing (as if its
+    // function froze), so a new message may take over.
+    await db
+      .update(meetupMember)
+      .set({ checkinBusySince: new Date(Date.now() - 6 * 60_000) })
+      .where(and(eq(meetupMember.meetupId, meetupId), eq(meetupMember.userId, ana.id)))
+    const fresh = gated('New reply.')
+    const newTurn = as(ana, fresh.planner).checkin.send({ meetupId, text: 'second' })
+    await expect.poll(claim).not.toBe(oldClaim)
+    const newClaim = await claim()
+
+    // The old turn finishes first: it can't save, and it leaves the new lease alone.
+    old.open()
+    await expect(oldTurn).rejects.toMatchObject({ code: 'CONFLICT' })
+    expect(await claim()).toBe(newClaim)
+    expect(await busy(meetupId, ana)).not.toBeNull()
+
+    fresh.open()
+    await newTurn
+    expect(await claim()).toBeNull()
+    expect(await busy(meetupId, ana)).toBeNull()
+    expect((await as(ana, fresh.planner).checkin.history({ meetupId })).messages.map((m) => m.text)).toEqual([
+      'second',
+      'New reply.',
+    ])
+  })
+
   it('stores nothing when the planner refuses or fails, and frees the chat', async () => {
     const meetupId = await newMeetup('Failures')
     const refused = scripted(reply('refusal', []))

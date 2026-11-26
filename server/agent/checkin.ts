@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import Anthropic from '@anthropic-ai/sdk'
 import { TRPCError } from '@trpc/server'
 import { and, asc, count, eq, isNotNull, sql } from 'drizzle-orm'
@@ -18,8 +19,10 @@ type ToolResult = Anthropic.Beta.Messages.BetaToolResultBlockParam
 export const MAX_STEPS = 8
 /** Most messages a member can send in one check-in. */
 export const MESSAGES_MAX = 60
-/** A turn left marked busy longer than this (a crashed function) stops blocking. */
-const BUSY_TIMEOUT = sql`interval '5 minutes'`
+/** A lease left unrenewed this long (a crashed function) can be taken over. */
+const LEASE_TIMEOUT = sql`interval '5 minutes'`
+/** How often a running turn renews its lease, well inside the timeout. */
+export const LEASE_RENEW_MS = 60_000
 
 export const DEFAULT_PLANNER: PlannerConfig = { model: 'claude-opus-5-5', effort: 'low' }
 
@@ -98,17 +101,10 @@ export async function sendCheckin(
     throw new TRPCError({ code: 'BAD_REQUEST', message: 'This check-in has reached its message limit.' })
   }
 
-  // Claim the turn. Concurrent sends from the same member queue on this row,
-  // and only one finds it free.
-  const claimed = await rows(
-    db.execute(sql`
-      update ${meetupMember} set checkin_busy_since = now()
-      where meetup_id = ${meetupId} and user_id = ${userId}
-        and (checkin_busy_since is null or checkin_busy_since < now() - ${BUSY_TIMEOUT})
-      returning user_id
-    `),
-  )
-  if (claimed.length === 0) {
+  // Claim the turn with a token of its own. Concurrent sends from the same
+  // member queue on this row, and only one finds it free.
+  const lease = await claimLease(db, meetupId, userId)
+  if (!lease) {
     throw new TRPCError({ code: 'CONFLICT', message: 'Still answering your last message.' })
   }
 
@@ -135,6 +131,7 @@ export async function sendCheckin(
 
     for (let step = 0; ; step++) {
       if (step >= MAX_STEPS) throw plannerFailed('The planner took too many steps on that one.')
+      await lease.check()
       const response: ModelResponse = await callModel(planner.model, {
         model: planner.config.model,
         max_tokens: 16000,
@@ -170,6 +167,9 @@ export async function sendCheckin(
       turn.push({ role: 'user', content: results, text: null })
     }
 
+    // Renewing just before the save means no one can take over in between,
+    // so a turn that lost its lease never writes into a newer one.
+    await lease.check()
     const saved = await db
       .insert(checkinMessage)
       .values(turn.map((m) => ({ meetupId, userId, role: m.role, content: m.content, text: m.text })))
@@ -178,10 +178,56 @@ export async function sendCheckin(
       messages: saved.flatMap((m) => (m.text === null ? [] : [{ id: m.id, role: m.role, text: m.text }])),
     }
   } finally {
-    await db
-      .update(meetupMember)
-      .set({ checkinBusySince: null })
-      .where(and(eq(meetupMember.meetupId, meetupId), eq(meetupMember.userId, userId)))
+    await lease.release()
+  }
+}
+
+/**
+ * A member's check-in lease for one turn. While held it renews itself every
+ * LEASE_RENEW_MS; every renewal, check and release only touches the row while
+ * it still carries this turn's token, so a turn that was taken over can't
+ * renew, save into or clear the newer turn's lease.
+ */
+async function claimLease(db: Db, meetupId: string, userId: string) {
+  const token = randomUUID()
+  const mine = sql`meetup_id = ${meetupId} and user_id = ${userId} and checkin_claim = ${token}`
+  const claimed = await rows(
+    db.execute(sql`
+      update ${meetupMember} set checkin_busy_since = now(), checkin_claim = ${token}
+      where meetup_id = ${meetupId} and user_id = ${userId}
+        and (checkin_busy_since is null or checkin_busy_since < now() - ${LEASE_TIMEOUT})
+      returning user_id
+    `),
+  )
+  if (claimed.length === 0) return null
+
+  let lost = false
+  const renew = async () => {
+    const held = await rows(
+      db.execute(sql`update ${meetupMember} set checkin_busy_since = now() where ${mine} returning user_id`),
+    )
+    if (held.length === 0) lost = true
+  }
+  const timer = setInterval(() => {
+    renew().catch((error: unknown) => console.error('[planner] lease renewal failed:', error))
+  }, LEASE_RENEW_MS)
+  timer.unref?.()
+
+  return {
+    /** Renews the lease now, and stops the turn if a newer one took it over. */
+    async check() {
+      if (!lost) await renew()
+      if (lost) {
+        throw new TRPCError({
+          code: 'CONFLICT',
+          message: 'A newer message took over this one. Your latest message is the one being answered.',
+        })
+      }
+    },
+    async release() {
+      clearInterval(timer)
+      await db.execute(sql`update ${meetupMember} set checkin_busy_since = null, checkin_claim = null where ${mine}`)
+    },
   }
 }
 

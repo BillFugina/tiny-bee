@@ -138,11 +138,13 @@ export const meetupMember = pgTable(
     startLng: doublePrecision('start_lng'),
     maxMinutes: integer('max_minutes'),
     /**
-     * Set while the planner is answering this member, so a second message
-     * can't start a turn on top of the first. A stale value (a crashed
-     * function) stops blocking after a few minutes.
+     * The lease on this member's check-in: who holds it (a token per turn)
+     * and when it was last renewed. A running turn renews it often; one left
+     * unrenewed (a crashed function) can be taken over after a few minutes.
+     * Only the holder of the matching token renews, saves or clears it.
      */
     checkinBusySince: timestamp('checkin_busy_since', { withTimezone: true }),
+    checkinClaim: uuid('checkin_claim'),
   },
   (t) => [
     primaryKey({ columns: [t.meetupId, t.userId] }),
