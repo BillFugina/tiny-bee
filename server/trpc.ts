@@ -2,6 +2,7 @@ import { initTRPC, TRPCError } from '@trpc/server'
 import superjson from 'superjson'
 import { ZodError } from 'zod'
 import type { PlannerConfig, PlannerModel } from './agent/model.js'
+import type { LiveUpdates } from './live/live.js'
 import type { Db } from './db/client.js'
 import type { TownDirectory } from './places/directory.js'
 
@@ -19,6 +20,8 @@ export interface Context {
   planner?: { model: PlannerModel; config: PlannerConfig } | null
   /** This deployment's public origin, for links the planner hands out. */
   origin?: string | null
+  /** Tells other members' open pages to refresh. Absent in tests. */
+  live?: LiveUpdates
 }
 
 const t = initTRPC.context<Context>().create({
@@ -41,4 +44,18 @@ export const publicProcedure = t.procedure
 export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
   if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' })
   return next({ ctx: { ...ctx, user: ctx.user } })
+})
+
+/**
+ * For changes others in the meetup should see: once the change succeeds,
+ * everyone with the meetup open is told to refresh. The input's meetupId has
+ * already passed validation and the procedure's own membership check by then.
+ */
+export const meetupChangeProcedure = protectedProcedure.use(async ({ ctx, next, getRawInput }) => {
+  const result = await next()
+  if (result.ok && ctx.live) {
+    const input = (await getRawInput()) as { meetupId?: unknown } | undefined
+    if (typeof input?.meetupId === 'string') await ctx.live.publishChange(input.meetupId)
+  }
+  return result
 })

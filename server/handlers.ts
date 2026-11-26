@@ -6,6 +6,7 @@ import { anthropicPlanner, type PlannerModel } from './agent/model.js'
 import { auth, MCP_SCOPE, mcpResource } from './auth.js'
 import { lazyDb } from './db/client.js'
 import { appOrigin, env } from './env.js'
+import { ablyLiveUpdates, noLiveUpdates, type LiveUpdates } from './live/live.js'
 import { createMcpServer } from './mcp/server.js'
 import { towns } from './places/towns.js'
 import { appRouter } from './routers/index.js'
@@ -37,7 +38,30 @@ export async function createContext(request: Request): Promise<Context> {
     // Misconfigured auth shouldn't take down public procedures like health.
     console.error('[auth] session lookup failed:', error)
   }
-  return { db: lazyDb, user, towns: towns(), planner: planner(), origin: origin() }
+  return { db: lazyDb, user, towns: towns(), planner: planner(), origin: origin(), live: live() }
+}
+
+let liveUpdates: { key: string | undefined; live: LiveUpdates } | undefined
+
+/** Ably when ABLY_API_KEY is set, built once per function instance; otherwise off. */
+function live(): LiveUpdates {
+  let key: string | undefined
+  try {
+    key = env().ABLY_API_KEY
+  } catch {
+    return noLiveUpdates // Misconfigured env shows up elsewhere.
+  }
+  if (liveUpdates && liveUpdates.key === key) return liveUpdates.live
+  let built = noLiveUpdates
+  if (key) {
+    try {
+      built = ablyLiveUpdates(key)
+    } catch (error) {
+      console.error('[live] ABLY_API_KEY is set but unusable:', error)
+    }
+  }
+  liveUpdates = { key, live: built }
+  return built
 }
 
 /** The public origin, or null when env is misconfigured (that shows up elsewhere). */
@@ -98,7 +122,13 @@ export async function handleMcp(request: Request): Promise<Response> {
         if (typeof claims.sub !== 'string' || !claims.sub) {
           return Response.json({ error: 'invalid_token' }, { status: 401 })
         }
-        const server = createMcpServer({ db: lazyDb, towns: towns(), userId: claims.sub, origin: origin() })
+        const server = createMcpServer({
+          db: lazyDb,
+          towns: towns(),
+          userId: claims.sub,
+          origin: origin(),
+          live: live(),
+        })
         const transport = new WebStandardStreamableHTTPServerTransport({
           sessionIdGenerator: undefined,
           enableJsonResponse: true,

@@ -13,6 +13,8 @@ const schema = z.object({
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
   PLANNER_MODEL: z.string().min(1).optional(),
   PLANNER_EFFORT: z.enum(['low', 'medium', 'high']).optional(),
+  // Optional: without a key, pages don't refresh by themselves when others make changes.
+  ABLY_API_KEY: z.string().min(1).optional(),
 })
 
 export type Env = z.infer<typeof schema>
