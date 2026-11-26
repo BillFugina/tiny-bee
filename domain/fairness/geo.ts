@@ -64,7 +64,19 @@ export function geometricMedian(points: readonly LatLng[], { iterations = 200, t
     current = next
     if (moved < toleranceKm) break
   }
-  return toLatLng(current)
+  // Weiszfeld creeps slowly when the true median sits on one of the points, so it
+  // can stop short. If a member's own start is closer to everyone in total, use it.
+  const total = (p: LatLng) => points.reduce((s, q) => s + distanceKm(p, q), 0)
+  let best = toLatLng(current)
+  let bestTotal = total(best)
+  for (const p of points) {
+    const t = total(p)
+    if (t < bestTotal) {
+      best = { ...p }
+      bestTotal = t
+    }
+  }
+  return best
 }
 
 function sum(vecs: Vec3[]): Vec3 {
