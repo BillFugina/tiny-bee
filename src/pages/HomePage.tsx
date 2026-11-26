@@ -12,17 +12,34 @@ export function HomePage() {
 
   return (
     <section>
-      <h1>Plan a meetup everyone can actually make</h1>
+      <HomeHeadline />
       <p className="muted">API: {describeHealth(health)}</p>
-      {isPending ? null : session ? (
-        <MyMeetups />
-      ) : (
-        <p>
-          <Link to="/sign-in">Sign in</Link> to start a meetup.
-        </p>
-      )}
+      {isPending ? null : session ? <MyMeetups /> : <SignInPrompt />}
       <AgentCallout />
     </section>
+  )
+}
+
+/** The home page as a signed-out visitor sees it, with no data to load. Rendered to HTML at build time. */
+export function SignedOutHome() {
+  return (
+    <section>
+      <HomeHeadline />
+      <SignInPrompt />
+      <AgentCallout />
+    </section>
+  )
+}
+
+function HomeHeadline() {
+  return <h1>Plan a meetup everyone can actually make</h1>
+}
+
+function SignInPrompt() {
+  return (
+    <p>
+      <Link to="/sign-in">Sign in</Link> to start a meetup.
+    </p>
   )
 }
 

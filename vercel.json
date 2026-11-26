@@ -8,6 +8,6 @@
     { "source": "/api/auth/:path*", "destination": "/api/auth" },
     { "source": "/.well-known/:path*", "destination": "/api/auth" },
     { "source": "/agents", "destination": "/agents.html" },
-    { "source": "/((?!api/|\\.well-known/).*)", "destination": "/index.html" }
+    { "source": "/((?!api/|\\.well-known/).*)", "destination": "/app.html" }
   ]
 }
