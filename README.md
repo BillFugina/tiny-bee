@@ -31,6 +31,11 @@ on a local port (`http://localhost:PORT/callback`) are allowed; any other plain
 http redirect is refused. Changing `BETTER_AUTH_SECRET` makes the stored token
 signing key unreadable, so clear the `jwks` table if you ever rotate it.
 
+The /agents page is also rendered to plain HTML at build time (`npm run
+prerender`, which writes `dist/agents.html`), so agents and fetchers that don't
+run JavaScript can read it. `public/robots.txt` and `public/llms.txt` point them
+at it.
+
 ### How the check-in stays private
 
 Each member's chat and notes are stored under that member and only ever read
