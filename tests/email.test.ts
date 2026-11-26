@@ -5,6 +5,7 @@ import { createDb, type Db } from '../server/db/client.js'
 import { meetupInvite, user } from '../server/db/schema.js'
 import { logOnlyEmail, resendEmail, type Email, type EmailSender } from '../server/email/email.js'
 import { inviteEmail, signInEmail } from '../server/email/messages.js'
+import { meetupChannel, type LiveUpdates } from '../server/live/live.js'
 import { INVITES_PER_DAY } from '../server/meetups/invites.js'
 import { createTownDirectory } from '../server/places/directory.js'
 import { appRouter } from '../server/routers/index.js'
@@ -194,6 +195,25 @@ describe.skipIf(!url)('email invites against Postgres', () => {
       { email: first, status: 'already_invited' },
     ])
     expect(email.sent).toHaveLength(1)
+  })
+
+  it("tells the meetup after invites go out, so other members' lists refresh", async () => {
+    const published: string[] = []
+    const live: LiveUpdates = {
+      publishChange: async (id) => {
+        published.push(id)
+      },
+      subscribeToken: async (id) => ({ host: 'test', channel: meetupChannel(id), token: 't', expires: 0 }),
+    }
+    const { id: meetupId } = await as(ana).meetups.create({ title: 'Live invites' })
+    const caller = (u: SessionUser) => createCaller({ db, user: u, towns, origin, email: recordingEmail(), live })
+
+    await caller(ana).invites.send({ meetupId, emails: [`${randomUUID()}@example.com`] })
+    expect(published).toEqual([meetupId])
+    await expect(
+      caller(stranger).invites.send({ meetupId, emails: [`${randomUUID()}@example.com`] }),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' })
+    expect(published).toEqual([meetupId])
   })
 
   it('is for members only, and off without a delivering sender', async () => {

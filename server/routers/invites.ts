@@ -1,6 +1,6 @@
 import { listInvites, sendInvites } from '../meetups/invites.js'
 import { meetupIdInput, sendInvitesInput } from '../../shared/schemas.js'
-import { protectedProcedure, router } from '../trpc.js'
+import { meetupChangeProcedure, protectedProcedure, router } from '../trpc.js'
 
 export const invitesRouter = router({
   /** Whether this server really emails invites (it doesn't without a Resend key). */
@@ -9,7 +9,8 @@ export const invitesRouter = router({
   list: protectedProcedure
     .input(meetupIdInput)
     .query(({ ctx, input }) => listInvites(ctx.db, input.meetupId, ctx.user.id)),
-  send: protectedProcedure
+  /** A meetupChangeProcedure, so other members' open invite lists refresh. */
+  send: meetupChangeProcedure
     .input(sendInvitesInput)
     .mutation(({ ctx, input }) => sendInvites(ctx.db, ctx.email, ctx.origin, input, ctx.user)),
 })
