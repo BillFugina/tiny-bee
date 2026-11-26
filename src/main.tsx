@@ -6,6 +6,7 @@ import { createBrowserRouter, RouterProvider } from 'react-router'
 import superjson from 'superjson'
 import type { AppRouter } from '../server/routers/index.js'
 import { TRPCProvider } from './lib/trpc'
+import { ConsentPage } from './pages/ConsentPage'
 import { Layout } from './pages/Layout'
 import { HomePage } from './pages/HomePage'
 import { MeetupPage } from './pages/MeetupPage'
@@ -18,6 +19,7 @@ const router = createBrowserRouter([
     children: [
       { path: '/', element: <HomePage /> },
       { path: '/sign-in', element: <SignInPage /> },
+      { path: '/consent', element: <ConsentPage /> },
       { path: '/m/:meetupId', element: <MeetupPage /> },
     ],
   },

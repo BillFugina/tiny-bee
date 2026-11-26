@@ -203,7 +203,13 @@ export const plannerTools = {
       return {
         phase: list.phase,
         max: list.max,
-        items: list.items.map((i) => ({ townId: i.townId, label: i.label, note: i.note, addedBy: i.addedBy })),
+        items: list.items.map((i) => ({
+          itemId: i.id,
+          townId: i.townId,
+          label: i.label,
+          note: i.note,
+          addedBy: i.addedBy,
+        })),
       }
     },
   }),
