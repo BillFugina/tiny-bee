@@ -1,9 +1,14 @@
+import { createHash } from 'node:crypto'
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { mcp } from '@better-auth/mcp'
 import { jwt, magicLink } from 'better-auth/plugins'
 import { db, schema } from './db/client.js'
+import { configuredEmail } from './email/configured.js'
+import { signInEmail } from './email/messages.js'
 import { appOrigin, env, trustedOrigins } from './env.js'
+
+const MAGIC_LINK_MINUTES = 10
 
 function createAuth() {
   const e = env()
@@ -35,11 +40,16 @@ function createAuth() {
     emailAndPassword: { enabled: true },
     plugins: [
       magicLink({
-        // No email provider is wired yet. Until one is (planned: Resend on a
-        // personal account), the link is written to the function log so it can
-        // be tested from the Vercel dashboard or the local terminal.
+        expiresIn: MAGIC_LINK_MINUTES * 60,
+        // Sent through Resend when RESEND_API_KEY is set. Without it the link
+        // is written to the function log, so local dev and previews without a
+        // key can still sign in. A failed send throws, so the sign-in page
+        // says the link didn't go out instead of saying "sent".
         sendMagicLink: async ({ email, url }) => {
-          console.info(`[auth] magic link for ${email}: ${url}`)
+          await configuredEmail().send({
+            ...signInEmail(email, url, MAGIC_LINK_MINUTES),
+            idempotencyKey: `sign-in-${createHash('sha256').update(url).digest('hex').slice(0, 40)}`,
+          })
         },
       }),
       // Signing keys for the access tokens below.

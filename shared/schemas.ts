@@ -73,3 +73,14 @@ export const CHECKIN_TEXT_MAX = 2000
 export const checkinSendInput = meetupIdInput.extend({
   text: z.string().trim().min(1, 'Say something first').max(CHECKIN_TEXT_MAX, 'Keep it under 2,000 characters'),
 })
+
+/** How many addresses one invite form can take at once. */
+export const INVITE_BATCH_MAX = 10
+
+export const inviteEmailsField = z
+  .array(z.email('That doesn’t look like an email address').trim().toLowerCase().max(254))
+  .min(1, 'Add at least one email address')
+  .max(INVITE_BATCH_MAX, `Up to ${INVITE_BATCH_MAX} addresses at a time`)
+
+export const sendInvitesInput = meetupIdInput.extend({ emails: inviteEmailsField })
+export type SendInvitesInput = z.infer<typeof sendInvitesInput>
