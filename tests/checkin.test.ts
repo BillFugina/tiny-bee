@@ -350,6 +350,37 @@ describe.skipIf(!url)('check-in against Postgres', () => {
     ])
   })
 
+  it('stops a taken-over turn before it runs the tools in its reply', async () => {
+    const meetupId = await newMeetup('Stale tools')
+    let open!: () => void
+    const gate = new Promise<void>((r) => (open = r))
+    const stale: PlannerModel = {
+      async create() {
+        await gate
+        return reply('tool_use', [
+          call('set_my_start', { townId: 3, maxMinutes: 60 }),
+          call('add_to_shortlist', { townId: 2 }),
+        ])
+      },
+    }
+    const mine = and(eq(meetupMember.meetupId, meetupId), eq(meetupMember.userId, ana.id))
+    const oldTurn = as(ana, { model: stale, config: DEFAULT_PLANNER }).checkin.send({ meetupId, text: 'first' })
+    await expect.poll(() => busy(meetupId, ana)).not.toBeNull()
+
+    // While the model call hangs, its lease goes stale and another turn takes it.
+    await db
+      .update(meetupMember)
+      .set({ checkinBusySince: new Date(Date.now() - 6 * 60_000) })
+      .where(mine)
+    await db.update(meetupMember).set({ checkinClaim: randomUUID(), checkinBusySince: new Date() }).where(mine)
+
+    open()
+    await expect(oldTurn).rejects.toMatchObject({ code: 'CONFLICT' })
+    const page = await as(ana).meetups.get({ meetupId })
+    expect(page.members.find((m) => m.isMe)?.start).toBeNull()
+    expect((await as(ana).shortlist.list({ meetupId })).items).toEqual([])
+  })
+
   it('stores nothing when the planner refuses or fails, and frees the chat', async () => {
     const meetupId = await newMeetup('Failures')
     const refused = scripted(reply('refusal', []))

@@ -144,6 +144,9 @@ export async function sendCheckin(
         fallbacks: 'default',
       })
 
+      // A model call can outlast the lease; a turn that was taken over while
+      // waiting stops here, before it acts on the reply.
+      await lease.check()
       if (response.stop_reason === 'refusal') throw plannerFailed("The planner can't help with that one.")
       if (response.stop_reason === 'max_tokens' || response.stop_reason === 'model_context_window_exceeded') {
         throw plannerFailed('The planner ran out of room on that one.')
@@ -160,6 +163,9 @@ export async function sendCheckin(
       // All results go back together in one message.
       const results: ToolResult[] = []
       for (const call of calls) {
+        // Tools can change shared state (a start, the shortlist), so each one
+        // runs only while this turn still holds the lease.
+        await lease.check()
         const outcome = await runPlannerTool(toolCtx, call.name, call.input)
         results.push({ type: 'tool_result', tool_use_id: call.id, content: outcome.content, is_error: outcome.isError })
       }
