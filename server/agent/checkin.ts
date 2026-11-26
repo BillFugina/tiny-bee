@@ -7,7 +7,7 @@ import { checkinMessage, meetupMember, user } from '../db/schema.js'
 import { getMeetupState, requireMember } from '../meetups/members.js'
 import { rows } from '../meetups/sql.js'
 import type { TownDirectory } from '../places/directory.js'
-import type { ModelResponse, PlannerConfig, PlannerModel } from './model.js'
+import type { ModelRequest, ModelResponse, PlannerConfig, PlannerModel } from './model.js'
 import { plannerSystemPrompt } from './prompt.js'
 import { plannerToolDefinitions, runPlannerTool } from './tools.js'
 
@@ -24,7 +24,16 @@ const LEASE_TIMEOUT = sql`interval '5 minutes'`
 /** How often a running turn renews its lease, well inside the timeout. */
 export const LEASE_RENEW_MS = 60_000
 
-export const DEFAULT_PLANNER: PlannerConfig = { model: 'claude-opus-5-5', effort: 'low' }
+export const DEFAULT_PLANNER: PlannerConfig = { model: 'claude-haiku-5-5', effort: 'low' }
+
+/**
+ * Server-side fallback retries a declined request on another model. Haiku 5.5
+ * has none and rejects the setting, so it goes only to models that take it.
+ */
+export function fallbackSettings(model: string): Pick<ModelRequest, 'betas' | 'fallbacks'> {
+  if (model.startsWith('claude-haiku')) return {}
+  return { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' }
+}
 
 /** The chat as the member sees it: their messages and the planner's replies. */
 export async function checkinHistory(db: Db, meetupId: string, userId: string, enabled: boolean) {
@@ -140,8 +149,7 @@ export async function sendCheckin(
         messages,
         output_config: { effort: planner.config.effort },
         cache_control: { type: 'ephemeral' },
-        betas: ['server-side-fallback-2026-07-01'],
-        fallbacks: 'default',
+        ...fallbackSettings(planner.config.model),
       })
 
       // A model call can outlast the lease; a turn that was taken over while

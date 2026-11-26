@@ -99,7 +99,8 @@ CI fails if the schema and the migrations disagree.
    command in `.env.example`).
 4. Optional: add `ANTHROPIC_API_KEY` for Production and Preview to switch on
    the planner chat. `PLANNER_MODEL` and `PLANNER_EFFORT` override its model
-   (default `claude-opus-5-5`) and effort (default `low`).
+   (default `claude-haiku-5-5`, the cheapest; `claude-sonnet-5-5` or
+   `claude-opus-5-5` cost more) and effort (default `low`).
 5. Push a branch: Vercel builds a preview, the build migrates that preview's
    Neon branch (`npm run vercel-build`), and the PR gets a link.
 

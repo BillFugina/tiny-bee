@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import Anthropic from '@anthropic-ai/sdk'
 import { and, eq, inArray } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { DEFAULT_PLANNER, echoable } from '../server/agent/checkin.js'
+import { DEFAULT_PLANNER, echoable, fallbackSettings } from '../server/agent/checkin.js'
 import type { ModelRequest, ModelResponse, PlannerModel } from '../server/agent/model.js'
 import { plannerToolDefinitions, runPlannerTool } from '../server/agent/tools.js'
 import { createDb, type Db } from '../server/db/client.js'
@@ -63,6 +63,13 @@ describe('planner tool definitions', () => {
 })
 
 describe('echoable', () => {
+  it('asks for server-side fallback only on models that have it', () => {
+    expect(fallbackSettings('claude-haiku-5-5')).toEqual({})
+    for (const model of ['claude-opus-5-5', 'claude-sonnet-5-5']) {
+      expect(fallbackSettings(model)).toEqual({ betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' })
+    }
+  })
+
   it('keeps a reply with no fallback as it is', () => {
     const content = [thinking('a'), text('hi')] as Block[]
     expect(echoable(content)).toBe(content)
@@ -171,12 +178,13 @@ describe.skipIf(!url)('check-in against Postgres', () => {
     expect(first.requests).toHaveLength(3)
     for (const r of first.requests) {
       expect(r).toMatchObject({
-        model: 'claude-opus-5-5',
+        model: 'claude-haiku-5-5',
         output_config: { effort: 'low' },
-        betas: ['server-side-fallback-2026-07-01'],
-        fallbacks: 'default',
         cache_control: { type: 'ephemeral' },
       })
+      // Haiku 5.5 has no server-side fallback and rejects the setting.
+      expect(r).not.toHaveProperty('fallbacks')
+      expect(r).not.toHaveProperty('betas')
       expect(r.system).toContain('Saturday brunch')
       expect(r.system).toContain('Ana')
     }
