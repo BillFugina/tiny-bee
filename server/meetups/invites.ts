@@ -23,6 +23,19 @@ export interface InviteResult {
  * Emails an invite link to each address. Members only. Skips people already in
  * the meetup and addresses invited in the last day, and stops at the daily
  * limit, so the form can't be used to send mail in bulk from tiny-bee.
+ *
+ * Known edge cases, left open on purpose (both are rare and cost at most a few
+ * extra emails; closing them needs a schema change):
+ * - The limits aren't atomic. The counts are read, then rows are inserted one
+ *   by one, and neon-http has no interactive transactions, so two sends at the
+ *   same moment can each pass the daily limit or the repeat check. A fix would
+ *   reserve the slot first, for example with a unique index per sender, address
+ *   and day.
+ * - A lost reply can send twice. If Resend accepts an invite but its response
+ *   never arrives, the send counts as failed and its row (which holds the
+ *   idempotency key) is deleted, so a retry gets a new key and Resend may deliver
+ *   a second copy. Keeping the row would block the retry through the repeat
+ *   check, so a fix needs a separate "pending" state for unconfirmed sends.
  */
 export async function sendInvites(
   db: Db,
