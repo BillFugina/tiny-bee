@@ -197,6 +197,13 @@ describe.skipIf(!url)('email invites against Postgres', () => {
     expect(email.sent).toHaveLength(1)
   })
 
+  it('tells the sign-in page whether email really goes out', async () => {
+    const anon = (email?: EmailSender) => createCaller({ db, user: null, towns, origin, email })
+    expect(await anon(recordingEmail()).email()).toEqual({ delivers: true })
+    expect(await anon(logOnlyEmail).email()).toEqual({ delivers: false })
+    expect(await anon().email()).toEqual({ delivers: false })
+  })
+
   it("tells the meetup after invites go out, so other members' lists refresh", async () => {
     const published: string[] = []
     const live: LiveUpdates = {

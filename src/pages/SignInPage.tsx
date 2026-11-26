@@ -1,9 +1,10 @@
 import { useForm } from '@tanstack/react-form'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import { z } from 'zod'
 import { agentRedirect, authClient, isAgentSignIn } from '../lib/auth-client'
+import { useTRPC } from '../lib/trpc'
 
 const credentials = z.object({
   name: z.string(),
@@ -23,6 +24,8 @@ export function SignInPage() {
   // An agent sent the member here to connect; after sign-in, Better Auth says where to go next.
   const forAgent = isAgentSignIn(params)
   const queryClient = useQueryClient()
+  const trpc = useTRPC()
+  const emailDelivers = useQuery(trpc.email.queryOptions()).data?.delivers
 
   const form = useForm({
     defaultValues: { name: '', email: '', password: '' },
@@ -60,6 +63,8 @@ export function SignInPage() {
     }
     const result = await authClient.signIn.magicLink({ email, callbackURL: next })
     if (result.error) setError(result.error.message || `Could not send the link (HTTP ${result.error.status})`)
+    else if (emailDelivers === false)
+      setNotice("This server doesn't send email, so the link went to the server log. It works for the next 10 minutes.")
     else setNotice('Link sent. Check your email; it works for the next 10 minutes.')
   }
 
