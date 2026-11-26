@@ -1,8 +1,10 @@
 import { sql } from 'drizzle-orm'
 import {
+  bigserial,
   boolean,
   check,
   doublePrecision,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -135,6 +137,12 @@ export const meetupMember = pgTable(
     startLat: doublePrecision('start_lat'),
     startLng: doublePrecision('start_lng'),
     maxMinutes: integer('max_minutes'),
+    /**
+     * Set while the planner is answering this member, so a second message
+     * can't start a turn on top of the first. A stale value (a crashed
+     * function) stops blocking after a few minutes.
+     */
+    checkinBusySince: timestamp('checkin_busy_since', { withTimezone: true }),
   },
   (t) => [
     primaryKey({ columns: [t.meetupId, t.userId] }),
@@ -198,4 +206,70 @@ export const ballot = pgTable(
     ranking: jsonb('ranking').$type<string[]>().notNull(),
   },
   (t) => [unique('ballot_meetup_token_uq').on(t.meetupId, t.tokenHash)],
+)
+
+// ---------------------------------------------------------------------------
+// The private check-in: each member's conversation with the planner agent and
+// the things they told it. Both are keyed to one member in one meetup and only
+// ever read back for that member.
+// ---------------------------------------------------------------------------
+
+export const checkinRole = pgEnum('checkin_role', ['user', 'assistant'])
+
+/**
+ * One message of a member's check-in, stored exactly as sent to or received
+ * from the model so the conversation replays unchanged (the model's thinking
+ * blocks must come back byte for byte). `visible` marks messages shown in the
+ * chat; tool results and tool-only turns are kept but not shown.
+ */
+export const checkinMessage = pgTable(
+  'checkin_message',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    meetupId: uuid('meetup_id').notNull(),
+    userId: text('user_id').notNull(),
+    role: checkinRole('role').notNull(),
+    content: jsonb('content').$type<unknown[]>().notNull(),
+    /** What the chat shows for this message, or null to hide it. */
+    text: text('text'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      columns: [t.meetupId, t.userId],
+      foreignColumns: [meetupMember.meetupId, meetupMember.userId],
+      name: 'checkin_message_member_fk',
+    }).onDelete('cascade'),
+    index('checkin_message_member_idx').on(t.meetupId, t.userId, t.id),
+  ],
+)
+
+export const constraintKind = pgEnum('constraint_kind', [
+  'budget',
+  'food',
+  'accessibility',
+  'timing',
+  'travel',
+  'other',
+])
+
+/** Something a member told the planner in private, like a budget or a food need. */
+export const memberConstraint = pgTable(
+  'member_constraint',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    meetupId: uuid('meetup_id').notNull(),
+    userId: text('user_id').notNull(),
+    kind: constraintKind('kind').notNull(),
+    detail: text('detail').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      columns: [t.meetupId, t.userId],
+      foreignColumns: [meetupMember.meetupId, meetupMember.userId],
+      name: 'member_constraint_member_fk',
+    }).onDelete('cascade'),
+    index('member_constraint_member_idx').on(t.meetupId, t.userId),
+  ],
 )

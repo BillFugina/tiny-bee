@@ -25,6 +25,7 @@
     "towns:build": "tsx scripts/build-towns.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.14.0",
     "@neondatabase/serverless": "^1.2.1",
     "@tanstack/react-form": "^1.33.5",
     "@tanstack/react-query": "^5.108.4",

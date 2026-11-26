@@ -7,7 +7,19 @@ through their own agents over MCP.
 What works so far: sign-in, creating a meetup and sharing its link, joining
 by that link, each member's starting town and longest drive, a ranked list of
 the fairest places to meet, a shortlist, and an anonymous ranked-choice vote
-with a round-by-round reveal. The private agent and MCP come next.
+with a round-by-round reveal, and a private check-in where each member chats
+with a planner agent (Claude) that saves their start, drive limit and private
+needs. MCP for members' own agents comes next.
+
+### How the check-in stays private
+
+Each member's chat and notes are stored under that member and only ever read
+for them. The planner's tools act as that one member in that one meetup: no
+tool input can name another member or meetup. Other members reach the planner
+by name and starting town only (their drive limits and notes never do), and it
+has no ballot tools at all. It adds to the shortlist only when the member asks.
+Without an `ANTHROPIC_API_KEY` the chat shows as switched off and the rest of
+the app works as before.
 
 ### How the vote stays anonymous
 
@@ -28,6 +40,7 @@ members, not from the operator.
 | API      | tRPC (fetch adapter) as a Vercel function at `/api/trpc`                       |
 | Auth     | Better Auth (email and password, magic link) at `/api/auth`                    |
 | Database | Neon Postgres via Drizzle ORM (Neon HTTP driver on Vercel)                     |
+| Agent    | Claude via the Anthropic TypeScript SDK, with a small tool loop on the server  |
 | Hosting  | Vercel: static SPA on the CDN, API as functions, a preview per branch          |
 | CI       | GitHub Actions: lint, format, typecheck, migrations, drift check, tests, build |
 
@@ -40,6 +53,7 @@ Better Auth's MCP plugin as the OAuth server for members' agents.
 api/            Vercel functions (thin wrappers around server/handlers.ts)
 server/         tRPC routers, Better Auth, Drizzle schema and client, env
 server/meetups/ meetup logic the routers call: members, shortlist, vote
+server/agent/   the private check-in: planner prompt, tools and turn loop
 shared/         zod schemas used by both the browser and the server
 domain/         pure logic with no I/O: the fairness engine and the instant-runoff count
 src/            React app
@@ -83,7 +97,10 @@ CI fails if the schema and the migrations disagree.
    reconnecting this integration; the data stays put.
 3. Add `BETTER_AUTH_SECRET` for Production and Preview (generate with the
    command in `.env.example`).
-4. Push a branch: Vercel builds a preview, the build migrates that preview's
+4. Optional: add `ANTHROPIC_API_KEY` for Production and Preview to switch on
+   the planner chat. `PLANNER_MODEL` and `PLANNER_EFFORT` override its model
+   (default `claude-opus-5-5`) and effort (default `low`).
+5. Push a branch: Vercel builds a preview, the build migrates that preview's
    Neon branch (`npm run vercel-build`), and the PR gets a link.
 
 ## Scripts

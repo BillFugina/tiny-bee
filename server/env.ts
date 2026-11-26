@@ -9,6 +9,10 @@ const schema = z.object({
   VERCEL_URL: z.string().optional(),
   VERCEL_BRANCH_URL: z.string().optional(),
   VERCEL_PROJECT_PRODUCTION_URL: z.string().optional(),
+  // Optional: without a key the app runs and the planner chat says it's off.
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
+  PLANNER_MODEL: z.string().min(1).optional(),
+  PLANNER_EFFORT: z.enum(['low', 'medium', 'high']).optional(),
 })
 
 export type Env = z.infer<typeof schema>
