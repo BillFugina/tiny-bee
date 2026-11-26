@@ -4,13 +4,53 @@ A group meetup planner where an agent talks with each member privately, finds
 places that are fair for everyone, and runs the vote. Members can also take part
 through their own agents over MCP.
 
-What works so far: sign-in, creating a meetup and sharing its link, joining
-by that link, each member's starting town and longest drive, a ranked list of
-the fairest places to meet, a shortlist, and an anonymous ranked-choice vote
-with a round-by-round reveal, and a private check-in where each member chats
-with a planner agent (Claude) that saves their start, drive limit and private
-needs, and an MCP server so a member's own agent (Claude, Codex or any MCP
-client) can do all of that for them.
+Live at https://tiny-bee.billfugina.com. See [Features](#features) for what
+works today and what's planned.
+
+## Features
+
+### Live
+
+- **Sign-in:** email and password, or a sign-in link by email.
+- **Meetups:** create one, share its invite link, or email invites from the
+  meetup page and see who was invited and who joined.
+- **Private check-in:** each member chats with a planner agent (Claude) that
+  saves their starting town, longest drive and private needs, like a budget or a
+  time they must leave. Other members see only a town.
+- **Fair areas:** towns ranked by the longest single drive, with a slider that
+  blends in the group's average drive, and every member's time shown.
+- **Shortlist:** members add towns from the ranked list, with notes.
+- **Vote:** anonymous ranked-choice (instant-runoff) with an optional deadline.
+  Members see turnout, not choices, and everyone sees the result when it closes.
+- **Bring your own agent:** an MCP server with OAuth, so a member's own agent
+  (Claude, Codex or any MCP client) can join, check in, add to the shortlist and
+  vote once the member confirms. See [Connecting your own agent](#connecting-your-own-agent).
+- **Live updates:** open meetup pages refresh when anyone makes a change.
+- **Readable by agents:** the home page and /agents are served as plain HTML,
+  with `robots.txt` and `llms.txt`.
+
+### Planned
+
+From the MVP scope, not built yet:
+
+- **Real driving times:** a route-matrix call for the finalists. Times today are
+  estimates from straight-line distance.
+- **Venues:** search for real venues in the top areas and shortlist those, not
+  just towns.
+- **Decision output:** a calendar invite (.ics) with each member's directions.
+- **Map:** each member's reachable area drawn on a map.
+- **Agent safeguards:** an audit log of tool calls and scripted evals, including
+  leak tests, in CI.
+
+Later:
+
+- Transit, then flights, for groups spread far apart.
+- Per-person fairness weights and travel cost.
+- Picking the date too, and comparing voting methods on the same ballots.
+- Reminders and rescheduling, and members' agents negotiating with each other.
+- Phone sign-in, push notifications and a mobile app.
+
+## How it works
 
 ### Connecting your own agent
 
