@@ -32,7 +32,16 @@ export function SignedOutHome() {
 }
 
 function HomeHeadline() {
-  return <h1>Plan a meetup everyone can actually make</h1>
+  return (
+    <>
+      <h1>Plan a meetup everyone can actually make</h1>
+      <p className="lead">
+        Tiny Bee helps a group find a place to meet that's fair to everyone. Each member privately tells the planner
+        where they're starting from and how far they'll drive, then Tiny Bee suggests the fairest towns, builds a
+        shortlist and runs a ranked-choice vote.
+      </p>
+    </>
+  )
 }
 
 function SignInPrompt() {
