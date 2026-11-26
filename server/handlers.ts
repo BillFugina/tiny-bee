@@ -3,7 +3,7 @@ import { DEFAULT_PLANNER } from './agent/checkin.js'
 import { anthropicPlanner, type PlannerModel } from './agent/model.js'
 import { auth } from './auth.js'
 import { lazyDb } from './db/client.js'
-import { env } from './env.js'
+import { appOrigin, env } from './env.js'
 import { towns } from './places/towns.js'
 import { appRouter } from './routers/index.js'
 import type { Context } from './trpc.js'
@@ -34,7 +34,16 @@ export async function createContext(request: Request): Promise<Context> {
     // Misconfigured auth shouldn't take down public procedures like health.
     console.error('[auth] session lookup failed:', error)
   }
-  return { db: lazyDb, user, towns: towns(), planner: planner() }
+  return { db: lazyDb, user, towns: towns(), planner: planner(), origin: origin() }
+}
+
+/** The public origin, or null when env is misconfigured (that shows up elsewhere). */
+function origin(): string | null {
+  try {
+    return appOrigin()
+  } catch {
+    return null
+  }
 }
 
 let plannerModel: { key: string; model: PlannerModel } | undefined

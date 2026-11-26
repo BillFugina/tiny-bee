@@ -9,5 +9,7 @@ export const checkinRouter = router({
     .query(({ ctx, input }) => checkinHistory(ctx.db, input.meetupId, ctx.user.id, Boolean(ctx.planner))),
   send: protectedProcedure
     .input(checkinSendInput)
-    .mutation(({ ctx, input }) => sendCheckin(ctx.db, ctx.towns, ctx.planner ?? null, input, ctx.user.id)),
+    .mutation(({ ctx, input }) =>
+      sendCheckin(ctx.db, ctx.towns, ctx.planner ?? null, input, ctx.user.id, ctx.origin ?? null),
+    ),
 })

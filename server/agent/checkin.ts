@@ -88,6 +88,8 @@ export async function sendCheckin(
   planner: { model: PlannerModel; config: PlannerConfig } | null,
   input: { meetupId: string; text: string },
   userId: string,
+  /** The app's public origin, for the invite link; null leaves the link as a path. */
+  origin: string | null = null,
 ) {
   const { meetupId } = input
   await requireMember(db, meetupId, userId)
@@ -136,7 +138,7 @@ export async function sendCheckin(
     messages.push({ role: 'user', content: userContent })
 
     const system = plannerSystemPrompt(title, me?.name ?? 'this member')
-    const toolCtx = { db, towns, meetupId, userId }
+    const toolCtx = { db, towns, meetupId, userId, origin }
 
     for (let step = 0; ; step++) {
       if (step >= MAX_STEPS) throw plannerFailed('The planner took too many steps on that one.')

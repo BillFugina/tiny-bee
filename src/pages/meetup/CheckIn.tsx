@@ -68,7 +68,7 @@ export function CheckIn({ meetupId }: { meetupId: string }) {
         ) : null}
         {messages.map((m) => (
           <li key={m.id} className={`bubble ${m.role === 'user' ? 'me' : 'planner'}`}>
-            {m.text}
+            <Linked text={m.text} />
           </li>
         ))}
         {send.isPending ? (
@@ -117,5 +117,28 @@ export function CheckIn({ meetupId }: { meetupId: string }) {
         </div>
       </form>
     </div>
+  )
+}
+
+/**
+ * Turns this app's own links in a planner reply (like the invite link) into
+ * links. Any other address stays plain text, since a reply can quote words
+ * other members wrote.
+ */
+function Linked({ text }: { text: string }) {
+  const origin = window.location.origin
+  return (
+    <>
+      {text.split(/(https?:\/\/[^\s<>"]+)/).map((part, i) => {
+        const href = part.replace(/[.,!?;:)]+$/, '')
+        if (i % 2 === 0 || !href.startsWith(`${origin}/`)) return part
+        return (
+          <span key={i}>
+            <a href={href}>{href}</a>
+            {part.slice(href.length)}
+          </span>
+        )
+      })}
+    </>
   )
 }

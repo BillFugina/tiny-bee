@@ -273,6 +273,32 @@ describe.skipIf(!url)('check-in against Postgres', () => {
     expect(removal).toEqual({ content: 'No note with that id.', isError: true })
   })
 
+  it("hands out the meetup's invite link on this deployment, to members only", async () => {
+    const meetupId = await newMeetup('Friday trivia')
+    const turn = scripted(reply('tool_use', [call('get_invite_link', {})]), reply('end_turn', [text('Here you go.')]))
+    await createCaller({
+      db,
+      user: ana,
+      towns,
+      planner: turn.planner,
+      origin: 'https://tiny-bee.example',
+    }).checkin.send({
+      meetupId,
+      text: 'how do I invite my friends?',
+    })
+    const result = turn.requests[1]!.messages.at(-1)!.content as { content: string }[]
+    const invite = JSON.parse(result[0]!.content)
+    expect(invite).toMatchObject({ link: `https://tiny-bee.example/m/${meetupId}`, membersSoFar: 2 })
+    expect(invite.inviteMessage).toContain('Friday trivia')
+    expect(invite.inviteMessage).toContain(invite.link)
+
+    // Without an origin the link is a path; outside the meetup there is no link at all.
+    const path = await runPlannerTool({ db, towns, meetupId, userId: ana.id }, 'get_invite_link', {})
+    expect(JSON.parse(path.content).link).toBe(`/m/${meetupId}`)
+    const outsider = await runPlannerTool({ db, towns, meetupId, userId: stranger.id }, 'get_invite_link', {})
+    expect(outsider.isError).toBe(true)
+  })
+
   it('hands bad tool calls back to the planner as errors', async () => {
     const meetupId = await newMeetup('Bad calls')
     const ctx = { db, towns, meetupId, userId: ana.id }

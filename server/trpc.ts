@@ -17,6 +17,8 @@ export interface Context {
   towns: TownDirectory
   /** The planner agent, or null when no API key is set. */
   planner?: { model: PlannerModel; config: PlannerConfig } | null
+  /** This deployment's public origin, for links the planner hands out. */
+  origin?: string | null
 }
 
 const t = initTRPC.context<Context>().create({

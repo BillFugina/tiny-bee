@@ -82,7 +82,8 @@ function MemberView({ meetupId }: { meetupId: string }) {
   return (
     <section className="stack">
       <h1>{meetup.data.title}</h1>
-      <ShareLink />
+      <p className="muted small">Invite friends with this link. Anyone who has it can join.</p>
+      <ShareLink title={meetup.data.title} />
       {planning ? <CheckIn meetupId={meetupId} /> : null}
       {planning ? null : (
         <>

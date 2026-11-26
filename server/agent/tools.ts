@@ -20,6 +20,8 @@ export interface ToolContext {
   towns: TownDirectory
   meetupId: string
   userId: string
+  /** The app's public origin, for the invite link; null gives a path instead. */
+  origin?: string | null
 }
 
 /** Most private notes a member can keep, so one chat can't grow without end. */
@@ -68,6 +70,22 @@ export const plannerTools = {
         others: meetup.members
           .filter((m) => !m.isMe)
           .map((m) => ({ name: m.name, role: m.role, checkedIn: m.start !== null, startTown: m.start?.label ?? null })),
+      }
+    },
+  }),
+
+  get_invite_link: tool({
+    description:
+      "The link that invites friends to this meetup, and a short invite message ready to paste into a text or email. Anyone with the link can sign in and join. The member sends it themselves: you can't message anyone.",
+    input: noInput,
+    async run(ctx) {
+      const meetup = await getMeetup(ctx.db, ctx.meetupId, ctx.userId)
+      const link = `${ctx.origin ?? ''}/m/${ctx.meetupId}`
+      return {
+        link,
+        inviteMessage: `Help me pick a place for "${meetup.title}" on tiny-bee. It finds somewhere that's a fair drive for everyone. Join here: ${link}`,
+        membersSoFar: meetup.members.length,
+        whereOnThePage: 'The same link is in the box at the top of the meetup page, with Copy link and Share buttons.',
       }
     },
   }),
