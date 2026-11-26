@@ -60,7 +60,7 @@ export function SignInPage() {
     }
     const result = await authClient.signIn.magicLink({ email, callbackURL: next })
     if (result.error) setError(result.error.message || `Could not send the link (HTTP ${result.error.status})`)
-    else setNotice('Link sent. (No email provider yet: it is in the server log.)')
+    else setNotice('Link sent. Check your email; it works for the next 10 minutes.')
   }
 
   return (
