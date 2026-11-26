@@ -1,9 +1,12 @@
+import { requireMcpAuth } from '@better-auth/mcp'
+import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js'
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch'
 import { DEFAULT_PLANNER } from './agent/checkin.js'
 import { anthropicPlanner, type PlannerModel } from './agent/model.js'
-import { auth } from './auth.js'
+import { auth, MCP_SCOPE, mcpResource } from './auth.js'
 import { lazyDb } from './db/client.js'
 import { appOrigin, env } from './env.js'
+import { createMcpServer } from './mcp/server.js'
 import { towns } from './places/towns.js'
 import { appRouter } from './routers/index.js'
 import type { Context } from './trpc.js'
@@ -76,4 +79,41 @@ export function handleTrpc(request: Request): Promise<Response> {
       if (error.code === 'INTERNAL_SERVER_ERROR') console.error(`[trpc] ${path ?? '?'}:`, error)
     },
   })
+}
+
+let mcpHandler: ((request: Request) => Promise<Response>) | undefined
+
+/**
+ * The MCP endpoint for members' own agents. requireMcpAuth checks the bearer
+ * token (signature, issuer, bound to this endpoint, the meetups scope) and
+ * answers 401 with a pointer to the OAuth metadata when there isn't one, which
+ * is how an MCP client knows to send the member through sign-in. Stateless:
+ * each request gets its own server, acting as the member the token names.
+ */
+export async function handleMcp(request: Request): Promise<Response> {
+  try {
+    mcpHandler ??= requireMcpAuth(
+      auth(),
+      async (req, claims) => {
+        if (typeof claims.sub !== 'string' || !claims.sub) {
+          return Response.json({ error: 'invalid_token' }, { status: 401 })
+        }
+        const server = createMcpServer({ db: lazyDb, towns: towns(), userId: claims.sub, origin: origin() })
+        const transport = new WebStandardStreamableHTTPServerTransport({
+          sessionIdGenerator: undefined,
+          enableJsonResponse: true,
+        })
+        await server.connect(transport)
+        return transport.handleRequest(req)
+      },
+      { resource: mcpResource(appOrigin()), requiredScopes: [MCP_SCOPE] },
+    )
+    return await mcpHandler(request)
+  } catch (error) {
+    console.error('[mcp] request failed:', error)
+    return Response.json(
+      { jsonrpc: '2.0', error: { code: -32603, message: 'tiny-bee had a problem on the server.' }, id: null },
+      { status: 500 },
+    )
+  }
 }

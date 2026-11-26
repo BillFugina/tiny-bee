@@ -1,11 +1,11 @@
 /**
- * Local stand-in for Vercel functions: serves /api/trpc/* and /api/auth/* on
+ * Local stand-in for Vercel functions: serves /api/trpc/*, /api/auth/*, /api/mcp and /.well-known/* on
  * port 3001 with the same handlers the api/ functions use. Vite proxies /api
  * here (see vite.config.ts). Run with `npm run dev`.
  */
 import { createServer, type IncomingMessage } from 'node:http'
 import { Readable } from 'node:stream'
-import { handleAuth, handleTrpc } from '../server/handlers.js'
+import { handleAuth, handleMcp, handleTrpc } from '../server/handlers.js'
 
 const PORT = Number(process.env.API_PORT ?? 3001)
 
@@ -31,7 +31,13 @@ createServer(async (req, res) => {
   try {
     const request = toRequest(req)
     const path = new URL(request.url).pathname
-    const handler = path.startsWith('/api/trpc') ? handleTrpc : path.startsWith('/api/auth') ? handleAuth : null
+    const handler = path.startsWith('/api/trpc')
+      ? handleTrpc
+      : path.startsWith('/api/auth') || path.startsWith('/.well-known/')
+        ? handleAuth
+        : path === '/api/mcp'
+          ? handleMcp
+          : null
     const response = handler ? await handler(request) : new Response('Not found', { status: 404 })
     res.statusCode = response.status
     response.headers.forEach((value, key) => {

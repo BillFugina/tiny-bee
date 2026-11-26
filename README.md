@@ -9,7 +9,27 @@ by that link, each member's starting town and longest drive, a ranked list of
 the fairest places to meet, a shortlist, and an anonymous ranked-choice vote
 with a round-by-round reveal, and a private check-in where each member chats
 with a planner agent (Claude) that saves their start, drive limit and private
-needs. MCP for members' own agents comes next.
+needs, and an MCP server so a member's own agent (Claude, Codex or any MCP
+client) can do all of that for them.
+
+### Connecting your own agent
+
+Add `https://tiny-bee.billfugina.com/api/mcp` as a remote MCP server in your
+agent. It registers itself, sends you to tiny-bee to sign in, and asks you to
+allow it. After that it acts as you, and only you, in meetups you're in: list
+and create meetups, join by invite link, set your start and private notes, look
+at fair areas and the shortlist, add places, and vote. It casts a ballot only
+with `memberConfirmed: true`, which the tool tells it to send only after you've
+approved that exact ranking.
+
+Under the hood: Better Auth's MCP plugin is the OAuth 2.1 server (dynamic
+client registration, PKCE, tokens bound to `/api/mcp` with the `meetups`
+scope), and `/api/mcp` is a stateless Streamable HTTP endpoint built on the
+official MCP TypeScript SDK. Discovery lives at
+`/.well-known/oauth-protected-resource/api/mcp`. Agents that receive their code
+on a local port (`http://localhost:PORT/callback`) are allowed; any other plain
+http redirect is refused. Changing `BETTER_AUTH_SECRET` makes the stored token
+signing key unreadable, so clear the `jwks` table if you ever rotate it.
 
 ### How the check-in stays private
 
@@ -39,13 +59,13 @@ members, not from the operator.
 | Web      | Vite + React single-page app, React Router, TanStack Form                      |
 | API      | tRPC (fetch adapter) as a Vercel function at `/api/trpc`                       |
 | Auth     | Better Auth (email and password, magic link) at `/api/auth`                    |
+| MCP      | MCP TypeScript SDK at `/api/mcp`; Better Auth's MCP plugin as its OAuth server |
 | Database | Neon Postgres via Drizzle ORM (Neon HTTP driver on Vercel)                     |
 | Agent    | Claude via the Anthropic TypeScript SDK, with a small tool loop on the server  |
 | Hosting  | Vercel: static SPA on the CDN, API as functions, a preview per branch          |
 | CI       | GitHub Actions: lint, format, typecheck, migrations, drift check, tests, build |
 
-Later: Ably (realtime) and Inngest (durable workflows) behind adapters, and
-Better Auth's MCP plugin as the OAuth server for members' agents.
+Later: Ably (realtime) and Inngest (durable workflows) behind adapters.
 
 ## Layout
 
@@ -54,6 +74,7 @@ api/            Vercel functions (thin wrappers around server/handlers.ts)
 server/         tRPC routers, Better Auth, Drizzle schema and client, env
 server/meetups/ meetup logic the routers call: members, shortlist, vote
 server/agent/   the private check-in: planner prompt, tools and turn loop
+server/mcp/     the MCP server for members' own agents (wraps the planner tools)
 shared/         zod schemas used by both the browser and the server
 domain/         pure logic with no I/O: the fairness engine and the instant-runoff count
 src/            React app

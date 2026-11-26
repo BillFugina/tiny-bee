@@ -6,6 +6,7 @@
   "rewrites": [
     { "source": "/api/trpc/:path*", "destination": "/api/trpc" },
     { "source": "/api/auth/:path*", "destination": "/api/auth" },
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    { "source": "/.well-known/:path*", "destination": "/api/auth" },
+    { "source": "/((?!api/|\\.well-known/).*)", "destination": "/index.html" }
   ]
 }

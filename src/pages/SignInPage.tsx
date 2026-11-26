@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import { z } from 'zod'
-import { authClient } from '../lib/auth-client'
+import { agentRedirect, authClient, isAgentSignIn } from '../lib/auth-client'
 
 const credentials = z.object({
   name: z.string(),
@@ -20,6 +20,8 @@ export function SignInPage() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const next = safeNext(params.get('next'))
+  // An agent sent the member here to connect; after sign-in, Better Auth says where to go next.
+  const forAgent = isAgentSignIn(params)
   const queryClient = useQueryClient()
 
   const form = useForm({
@@ -37,6 +39,11 @@ export function SignInPage() {
           : await authClient.signIn.email({ email: value.email, password: value.password })
       if (result.error) {
         setError(result.error.message || `Something went wrong (HTTP ${result.error.status})`)
+        return
+      }
+      const agentNext = agentRedirect(result.data)
+      if (agentNext) {
+        window.location.assign(agentNext)
         return
       }
       await queryClient.invalidateQueries()
@@ -59,6 +66,7 @@ export function SignInPage() {
   return (
     <section>
       <h1>{mode === 'sign-in' ? 'Sign in' : 'Create an account'}</h1>
+      {forAgent ? <p className="muted">Sign in to connect your agent to tiny-bee. You'll approve it next.</p> : null}
       <form
         className="card"
         onSubmit={(e) => {
@@ -98,9 +106,12 @@ export function SignInPage() {
           </form.Field>
         ))}
         <button type="submit">{mode === 'sign-in' ? 'Sign in' : 'Sign up'}</button>
-        <button type="button" className="link" onClick={sendMagicLink}>
-          Email me a sign-in link instead
-        </button>
+        {forAgent ? null : (
+          // A magic link opens in a new page and would drop the agent's request.
+          <button type="button" className="link" onClick={sendMagicLink}>
+            Email me a sign-in link instead
+          </button>
+        )}
         {error ? <span className="error">{error}</span> : null}
         {notice ? <span className="muted">{notice}</span> : null}
       </form>
