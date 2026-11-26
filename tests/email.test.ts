@@ -196,6 +196,13 @@ describe.skipIf(!url)('email invites against Postgres', () => {
     expect(email.sent).toHaveLength(1)
   })
 
+  it('tells the sign-in page whether email really goes out', async () => {
+    const anon = (email?: EmailSender) => createCaller({ db, user: null, towns, origin, email })
+    expect(await anon(recordingEmail()).email()).toEqual({ delivers: true })
+    expect(await anon(logOnlyEmail).email()).toEqual({ delivers: false })
+    expect(await anon().email()).toEqual({ delivers: false })
+  })
+
   it('is for members only, and off without a delivering sender', async () => {
     const { id: meetupId } = await as(ana).meetups.create({ title: 'Closed' })
     await expect(
