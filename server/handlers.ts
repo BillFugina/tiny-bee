@@ -5,6 +5,7 @@ import { DEFAULT_PLANNER } from './agent/checkin.js'
 import { anthropicPlanner, type PlannerModel } from './agent/model.js'
 import { auth, MCP_SCOPE, mcpResource } from './auth.js'
 import { lazyDb } from './db/client.js'
+import { configuredEmail } from './email/configured.js'
 import { appOrigin, env } from './env.js'
 import { ablyLiveUpdates, noLiveUpdates, type LiveUpdates } from './live/live.js'
 import { createMcpServer } from './mcp/server.js'
@@ -38,7 +39,15 @@ export async function createContext(request: Request): Promise<Context> {
     // Misconfigured auth shouldn't take down public procedures like health.
     console.error('[auth] session lookup failed:', error)
   }
-  return { db: lazyDb, user, towns: towns(), planner: planner(), origin: origin(), live: live() }
+  return {
+    db: lazyDb,
+    user,
+    towns: towns(),
+    planner: planner(),
+    origin: origin(),
+    live: live(),
+    email: configuredEmail(),
+  }
 }
 
 let liveUpdates: { key: string | undefined; live: LiveUpdates } | undefined

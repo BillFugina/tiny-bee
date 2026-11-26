@@ -138,6 +138,19 @@ ul.plain {
   flex: 1;
   min-width: 0;
 }
+.invite-email {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+.invite-email label {
+  align-self: stretch;
+}
+.invite-results {
+  margin: 0;
+  padding-left: 20px;
+}
 .autocomplete {
   position: relative;
 }

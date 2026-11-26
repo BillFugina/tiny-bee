@@ -15,6 +15,10 @@ const schema = z.object({
   PLANNER_EFFORT: z.enum(['low', 'medium', 'high']).optional(),
   // Optional: without a key, pages don't refresh by themselves when others make changes.
   ABLY_API_KEY: z.string().min(1).optional(),
+  // Optional: without a key, sign-in links go to the server log and email invites are off.
+  RESEND_API_KEY: z.string().min(1).optional(),
+  // Optional: who emails come from. Must be on a domain verified in Resend.
+  EMAIL_FROM: z.string().min(3).optional(),
 })
 
 export type Env = z.infer<typeof schema>
