@@ -3,12 +3,12 @@ import Anthropic from '@anthropic-ai/sdk'
 import { TRPCError } from '@trpc/server'
 import { and, asc, count, eq, isNotNull, sql } from 'drizzle-orm'
 import type { Db } from '../db/client.js'
-import { checkinMessage, meetupMember, user } from '../db/schema.js'
-import { getMeetupState, requireMember } from '../meetups/members.js'
+import { checkinMessage, meetupMember } from '../db/schema.js'
+import { requireMember } from '../meetups/members.js'
 import { rows } from '../meetups/sql.js'
 import type { TownDirectory } from '../places/directory.js'
 import type { ModelRequest, ModelResponse, PlannerConfig, PlannerModel } from './model.js'
-import { plannerSystemPrompt } from './prompt.js'
+import { PLANNER_SYSTEM_PROMPT } from './prompt.js'
 import { plannerToolDefinitions, runPlannerTool } from './tools.js'
 
 type MessageParam = Anthropic.Beta.Messages.BetaMessageParam
@@ -120,15 +120,11 @@ export async function sendCheckin(
   }
 
   try {
-    const [{ title }, [me], history] = await Promise.all([
-      getMeetupState(db, meetupId),
-      db.select({ name: user.name }).from(user).where(eq(user.id, userId)),
-      db
-        .select({ role: checkinMessage.role, content: checkinMessage.content })
-        .from(checkinMessage)
-        .where(and(eq(checkinMessage.meetupId, meetupId), eq(checkinMessage.userId, userId)))
-        .orderBy(asc(checkinMessage.id)),
-    ])
+    const history = await db
+      .select({ role: checkinMessage.role, content: checkinMessage.content })
+      .from(checkinMessage)
+      .where(and(eq(checkinMessage.meetupId, meetupId), eq(checkinMessage.userId, userId)))
+      .orderBy(asc(checkinMessage.id))
 
     // The message goes to the model in exactly the form it's stored in, so the
     // next turn replays the same conversation byte for byte.
@@ -137,7 +133,6 @@ export async function sendCheckin(
     const messages: MessageParam[] = history.map((m) => ({ role: m.role, content: m.content }) as MessageParam)
     messages.push({ role: 'user', content: userContent })
 
-    const system = plannerSystemPrompt(title, me?.name ?? 'this member')
     const toolCtx = { db, towns, meetupId, userId, origin }
 
     for (let step = 0; ; step++) {
@@ -146,7 +141,7 @@ export async function sendCheckin(
       const response: ModelResponse = await callModel(planner.model, {
         model: planner.config.model,
         max_tokens: 16000,
-        system,
+        system: PLANNER_SYSTEM_PROMPT,
         tools: plannerToolDefinitions,
         messages,
         output_config: { effort: planner.config.effort },

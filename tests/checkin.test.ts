@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { DEFAULT_PLANNER, echoable, fallbackSettings } from '../server/agent/checkin.js'
 import type { ModelRequest, ModelResponse, PlannerModel } from '../server/agent/model.js'
 import { plannerToolDefinitions, runPlannerTool } from '../server/agent/tools.js'
+import { PLANNER_SYSTEM_PROMPT } from '../server/agent/prompt.js'
 import { createDb, type Db } from '../server/db/client.js'
 import { checkinMessage, meetupMember, user } from '../server/db/schema.js'
 import { createTownDirectory } from '../server/places/directory.js'
@@ -185,8 +186,10 @@ describe.skipIf(!url)('check-in against Postgres', () => {
       // Haiku 5.5 has no server-side fallback and rejects the setting.
       expect(r).not.toHaveProperty('fallbacks')
       expect(r).not.toHaveProperty('betas')
-      expect(r.system).toContain('Saturday brunch')
-      expect(r.system).toContain('Ana')
+      // Nothing a member wrote goes into the instructions; the title and names come through tools.
+      expect(r.system).toBe(PLANNER_SYSTEM_PROMPT)
+      expect(r.system).not.toContain('Saturday brunch')
+      expect(r.system).not.toContain('Ana')
     }
     const searchResult = first.requests[1]!.messages.at(-1)!
     expect(searchResult.role).toBe('user')
