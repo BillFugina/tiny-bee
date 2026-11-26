@@ -15,7 +15,7 @@ client) can do all of that for them.
 ### Connecting your own agent
 
 Add `https://tiny-bee.billfugina.com/api/mcp` as a remote MCP server in your
-agent. It registers itself, sends you to tiny-bee to sign in, and asks you to
+agent ([step-by-step for Claude, Claude Code and Codex](https://tiny-bee.billfugina.com/agents)). It registers itself, sends you to tiny-bee to sign in, and asks you to
 allow it. After that it acts as you, and only you, in meetups you're in: list
 and create meetups, join by invite link, set your start and private notes, look
 at fair areas and the shortlist, add places, and vote. It casts a ballot only
