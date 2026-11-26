@@ -1,6 +1,7 @@
 import { initTRPC, TRPCError } from '@trpc/server'
 import superjson from 'superjson'
 import { ZodError } from 'zod'
+import type { PlannerConfig, PlannerModel } from './agent/model.js'
 import type { Db } from './db/client.js'
 import type { TownDirectory } from './places/directory.js'
 
@@ -14,6 +15,10 @@ export interface Context {
   db: Db
   user: SessionUser | null
   towns: TownDirectory
+  /** The planner agent, or null when no API key is set. */
+  planner?: { model: PlannerModel; config: PlannerConfig } | null
+  /** This deployment's public origin, for links the planner hands out. */
+  origin?: string | null
 }
 
 const t = initTRPC.context<Context>().create({

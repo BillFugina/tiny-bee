@@ -3,6 +3,7 @@ import { Link, useLocation, useParams } from 'react-router'
 import { authClient } from '../lib/auth-client'
 import { formatMinutes } from '../lib/format'
 import { useTRPC } from '../lib/trpc'
+import { CheckIn } from './meetup/CheckIn'
 import { FairAreas } from './meetup/FairAreas'
 import { ShareLink } from './meetup/ShareLink'
 import { Shortlist } from './meetup/Shortlist'
@@ -81,7 +82,9 @@ function MemberView({ meetupId }: { meetupId: string }) {
   return (
     <section className="stack">
       <h1>{meetup.data.title}</h1>
-      <ShareLink />
+      <p className="muted small">Invite friends with this link. Anyone who has it can join.</p>
+      <ShareLink title={meetup.data.title} />
+      {planning ? <CheckIn meetupId={meetupId} /> : null}
       {planning ? null : (
         <>
           {vote}
@@ -121,7 +124,9 @@ function MemberView({ meetupId }: { meetupId: string }) {
           {shortlist}
           {vote}
         </>
-      ) : null}
+      ) : (
+        <CheckIn meetupId={meetupId} />
+      )}
     </section>
   )
 }

@@ -66,3 +66,10 @@ export const castBallotInput = meetupIdInput.extend({
 })
 
 export const myBallotInput = meetupIdInput.extend({ token: ballotToken })
+
+/** Longest message a member can send the planner. */
+export const CHECKIN_TEXT_MAX = 2000
+
+export const checkinSendInput = meetupIdInput.extend({
+  text: z.string().trim().min(1, 'Say something first').max(CHECKIN_TEXT_MAX, 'Keep it under 2,000 characters'),
+})

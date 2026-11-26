@@ -1,6 +1,9 @@
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch'
+import { DEFAULT_PLANNER } from './agent/checkin.js'
+import { anthropicPlanner, type PlannerModel } from './agent/model.js'
 import { auth } from './auth.js'
 import { lazyDb } from './db/client.js'
+import { appOrigin, env } from './env.js'
 import { towns } from './places/towns.js'
 import { appRouter } from './routers/index.js'
 import type { Context } from './trpc.js'
@@ -31,7 +34,36 @@ export async function createContext(request: Request): Promise<Context> {
     // Misconfigured auth shouldn't take down public procedures like health.
     console.error('[auth] session lookup failed:', error)
   }
-  return { db: lazyDb, user, towns: towns() }
+  return { db: lazyDb, user, towns: towns(), planner: planner(), origin: origin() }
+}
+
+/** The public origin, or null when env is misconfigured (that shows up elsewhere). */
+function origin(): string | null {
+  try {
+    return appOrigin()
+  } catch {
+    return null
+  }
+}
+
+let plannerModel: { key: string; model: PlannerModel } | undefined
+
+/** The planner, built once per function instance, or null when no API key is set. */
+function planner(): Context['planner'] {
+  let e: ReturnType<typeof env>
+  try {
+    e = env()
+  } catch {
+    return null // Misconfigured env shows up in auth and the database; don't fail here too.
+  }
+  if (!e.ANTHROPIC_API_KEY) return null
+  if (plannerModel?.key !== e.ANTHROPIC_API_KEY) {
+    plannerModel = { key: e.ANTHROPIC_API_KEY, model: anthropicPlanner(e.ANTHROPIC_API_KEY) }
+  }
+  return {
+    model: plannerModel.model,
+    config: { model: e.PLANNER_MODEL ?? DEFAULT_PLANNER.model, effort: e.PLANNER_EFFORT ?? DEFAULT_PLANNER.effort },
+  }
 }
 
 export function handleTrpc(request: Request): Promise<Response> {

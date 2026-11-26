@@ -1,0 +1,1 @@
+ALTER TABLE "meetup_member" ADD COLUMN "checkin_claim" uuid;
