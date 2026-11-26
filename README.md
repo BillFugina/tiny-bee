@@ -31,6 +31,12 @@ on a local port (`http://localhost:PORT/callback`) are allowed; any other plain
 http redirect is refused. Changing `BETTER_AUTH_SECRET` makes the stored token
 signing key unreadable, so clear the `jwks` table if you ever rotate it.
 
+The public pages (home and /agents) are also rendered to plain HTML at build
+time (`npm run prerender`), so agents and fetchers that don't run JavaScript can
+read them. The prerendered home page becomes `dist/index.html`, and the empty app
+shell moves to `dist/app.html`, which `vercel.json` serves for every other route.
+`public/robots.txt` and `public/llms.txt` point agents at these pages.
+
 ### How the check-in stays private
 
 Each member's chat and notes are stored under that member and only ever read

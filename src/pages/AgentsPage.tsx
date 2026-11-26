@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { Link } from 'react-router'
 
 /** How to connect your own AI agent (Claude, Codex or any MCP client) to tiny-bee. */
-export function AgentsPage() {
-  const serverUrl = `${window.location.origin}/api/mcp`
+export function AgentsPage({ origin = window.location.origin }: { origin?: string }) {
+  const serverUrl = `${origin}/api/mcp`
 
   return (
     <section className="stack">

@@ -1,0 +1,5 @@
+# Tiny Bee welcomes agents and crawlers on its public pages.
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /m/

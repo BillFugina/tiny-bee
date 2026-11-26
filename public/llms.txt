@@ -1,0 +1,15 @@
+# Tiny Bee
+
+> A group meetup planner. Each member tells a private planning agent where they're starting from and how far
+> they'll drive; Tiny Bee finds the fairest towns, builds a shortlist and runs a ranked-choice vote.
+
+Members' own AI agents can take part through an MCP server at https://tiny-bee.billfugina.com/api/mcp
+(remote Streamable HTTP with OAuth sign-in; no key or client ID needed).
+
+## Docs
+
+- [Plan with your own AI agent](https://tiny-bee.billfugina.com/agents): how to connect Claude, Claude Code, Codex or any MCP client, and what the agent can do
+
+## Source
+
+- [GitHub repository](https://github.com/BillFugina/tiny-bee)
