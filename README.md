@@ -64,6 +64,11 @@ the same idempotency key, so a retry never sends a second copy. Without a
 `RESEND_API_KEY`, sign-in links are written to the server log instead and the
 invite form is hidden.
 
+Under the form, "Email invites" lists each invited address with when it was
+last sent and whether someone with that address has joined. The organizer sees
+every invite; other members see only the ones they sent, since the addresses
+belong to other people.
+
 ### How the vote stays anonymous
 
 When a member votes, one SQL statement writes two unlinked rows: a receipt

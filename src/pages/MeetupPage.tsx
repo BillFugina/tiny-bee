@@ -6,6 +6,7 @@ import { useTRPC } from '../lib/trpc'
 import { CheckIn } from './meetup/CheckIn'
 import { FairAreas } from './meetup/FairAreas'
 import { InviteByEmail } from './meetup/InviteByEmail'
+import { SentInvites } from './meetup/SentInvites'
 import { ShareLink } from './meetup/ShareLink'
 import { Shortlist } from './meetup/Shortlist'
 import { StartForm } from './meetup/StartForm'
@@ -88,6 +89,7 @@ function MemberView({ meetupId }: { meetupId: string }) {
       <p className="muted small">Invite friends with this link. Anyone who has it can join.</p>
       <ShareLink title={meetup.data.title} />
       <InviteByEmail meetupId={meetupId} />
+      <SentInvites meetupId={meetupId} userId={me?.userId} />
       {planning ? <CheckIn meetupId={meetupId} /> : null}
       {planning ? null : (
         <>

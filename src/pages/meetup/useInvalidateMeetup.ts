@@ -10,5 +10,6 @@ export function useInvalidateMeetup() {
       queryClient.invalidateQueries({ queryKey: trpc.meetups.pathKey() }),
       queryClient.invalidateQueries({ queryKey: trpc.shortlist.pathKey() }),
       queryClient.invalidateQueries({ queryKey: trpc.vote.pathKey() }),
+      queryClient.invalidateQueries({ queryKey: trpc.invites.list.pathKey() }),
     ])
 }

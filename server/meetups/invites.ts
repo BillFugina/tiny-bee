@@ -1,5 +1,5 @@
 import { TRPCError } from '@trpc/server'
-import { and, count, eq, gte, inArray, sql } from 'drizzle-orm'
+import { and, count, desc, eq, gte, inArray, sql } from 'drizzle-orm'
 import type { Db } from '../db/client.js'
 import { meetupInvite, meetupMember, user } from '../db/schema.js'
 import type { EmailSender } from '../email/email.js'
@@ -109,4 +109,70 @@ export async function sendInvites(
     }
   }
   return results
+}
+
+/** The most invited addresses the list shows. */
+export const INVITE_LIST_MAX = 100
+
+export interface SentInvite {
+  email: string
+  /** joined once someone with that address is a member of the meetup. */
+  status: 'invited' | 'joined'
+  lastSentAt: Date
+  timesSent: number
+  /** Who sent the latest invite to this address. */
+  invitedBy: { id: string; name: string }
+}
+
+/**
+ * The addresses invited to a meetup by email, newest first, one row per
+ * address. The organizer sees every invite; other members see the ones they
+ * sent, since the addresses are other people's.
+ */
+export async function listInvites(db: Db, meetupId: string, userId: string): Promise<SentInvite[]> {
+  const membership = await requireMember(db, meetupId, userId)
+  const rows = await db
+    .select({
+      email: meetupInvite.email,
+      createdAt: meetupInvite.createdAt,
+      invitedById: meetupInvite.invitedBy,
+      invitedByName: user.name,
+    })
+    .from(meetupInvite)
+    .innerJoin(user, eq(user.id, meetupInvite.invitedBy))
+    .where(
+      membership.role === 'organizer'
+        ? eq(meetupInvite.meetupId, meetupId)
+        : and(eq(meetupInvite.meetupId, meetupId), eq(meetupInvite.invitedBy, userId)),
+    )
+    .orderBy(desc(meetupInvite.createdAt))
+
+  const byEmail = new Map<string, SentInvite>()
+  for (const row of rows) {
+    const seen = byEmail.get(row.email)
+    if (seen) {
+      seen.timesSent++
+      continue
+    }
+    if (byEmail.size >= INVITE_LIST_MAX) continue
+    byEmail.set(row.email, {
+      email: row.email,
+      status: 'invited',
+      lastSentAt: row.createdAt,
+      timesSent: 1,
+      invitedBy: { id: row.invitedById, name: row.invitedByName },
+    })
+  }
+  if (byEmail.size === 0) return []
+
+  const joined = await db
+    .select({ email: sql<string>`lower(${user.email})` })
+    .from(meetupMember)
+    .innerJoin(user, eq(user.id, meetupMember.userId))
+    .where(and(eq(meetupMember.meetupId, meetupId), inArray(sql`lower(${user.email})`, [...byEmail.keys()])))
+  for (const { email } of joined) {
+    const invite = byEmail.get(email)
+    if (invite) invite.status = 'joined'
+  }
+  return [...byEmail.values()]
 }

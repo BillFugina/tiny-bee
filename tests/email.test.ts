@@ -244,6 +244,38 @@ describe.skipIf(!url)('email invites against Postgres', () => {
     }
   })
 
+  it('lists sent invites with who joined: all for the organizer, their own for members', async () => {
+    const dee = newUser('Dee')
+    await db.insert(user).values({ id: dee.id, email: dee.email, name: dee.name })
+    try {
+      const email = recordingEmail()
+      const { id: meetupId } = await as(ana).meetups.create({ title: 'Book club' })
+      await as(ben).meetups.join({ meetupId })
+      const other = `${randomUUID()}@example.com`
+      const bens = `${randomUUID()}@example.com`
+      // An invite to `other` from two days ago, before today's resend.
+      await db
+        .insert(meetupInvite)
+        .values({ meetupId, invitedBy: ana.id, email: other, createdAt: new Date(Date.now() - 48 * 60 * 60 * 1000) })
+      await as(ana, email).invites.send({ meetupId, emails: [dee.email.toLowerCase(), other] })
+      await as(ben, email).invites.send({ meetupId, emails: [bens] })
+      await as(dee).meetups.join({ meetupId })
+
+      const forAna = await as(ana).invites.list({ meetupId })
+      expect(
+        forAna.map(({ email, status, timesSent, invitedBy }) => ({ email, status, timesSent, by: invitedBy.name })),
+      ).toEqual([
+        { email: bens, status: 'invited', timesSent: 1, by: 'Ben' },
+        { email: other, status: 'invited', timesSent: 2, by: 'Ana' },
+        { email: dee.email.toLowerCase(), status: 'joined', timesSent: 1, by: 'Ana' },
+      ])
+      expect((await as(ben).invites.list({ meetupId })).map((i) => i.email)).toEqual([bens])
+      await expect(as(stranger).invites.list({ meetupId })).rejects.toMatchObject({ code: 'FORBIDDEN' })
+    } finally {
+      await db.delete(user).where(eq(user.id, dee.id))
+    }
+  })
+
   it('rejects bad addresses and too many at once', async () => {
     const { id: meetupId } = await as(ana).meetups.create({ title: 'Checks' })
     const email = recordingEmail()
