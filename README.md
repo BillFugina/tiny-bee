@@ -50,6 +50,17 @@ Later:
 - Reminders and rescheduling, and members' agents negotiating with each other.
 - Phone sign-in, push notifications and a mobile app.
 
+Wish list:
+
+- **Location and ETA on the day:** members can choose, per meetup, to share
+  their exact location on a map or only their ETA. Sharing is off by default,
+  keeps only the latest position and stops on its own after the meetup. ETAs
+  come from the same routing service as real driving times, counted to the venue
+  (or the town's center until venues ship), and positions go out over the live
+  updates channel.
+- **Mobile app for background location:** the web app can share location only
+  while it's open on the phone, so sharing in the background needs a native app.
+
 ## How it works
 
 ### Connecting your own agent
