@@ -5,6 +5,7 @@ import { createDb, type Db } from '../server/db/client.js'
 import { meetupInvite, user } from '../server/db/schema.js'
 import { logOnlyEmail, resendEmail, type Email, type EmailSender } from '../server/email/email.js'
 import { inviteEmail, signInEmail } from '../server/email/messages.js'
+import { meetupChannel, type LiveUpdates } from '../server/live/live.js'
 import { INVITES_PER_DAY } from '../server/meetups/invites.js'
 import { createTownDirectory } from '../server/places/directory.js'
 import { appRouter } from '../server/routers/index.js'
@@ -203,6 +204,25 @@ describe.skipIf(!url)('email invites against Postgres', () => {
     expect(await anon().email()).toEqual({ delivers: false })
   })
 
+  it("tells the meetup after invites go out, so other members' lists refresh", async () => {
+    const published: string[] = []
+    const live: LiveUpdates = {
+      publishChange: async (id) => {
+        published.push(id)
+      },
+      subscribeToken: async (id) => ({ host: 'test', channel: meetupChannel(id), token: 't', expires: 0 }),
+    }
+    const { id: meetupId } = await as(ana).meetups.create({ title: 'Live invites' })
+    const caller = (u: SessionUser) => createCaller({ db, user: u, towns, origin, email: recordingEmail(), live })
+
+    await caller(ana).invites.send({ meetupId, emails: [`${randomUUID()}@example.com`] })
+    expect(published).toEqual([meetupId])
+    await expect(
+      caller(stranger).invites.send({ meetupId, emails: [`${randomUUID()}@example.com`] }),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' })
+    expect(published).toEqual([meetupId])
+  })
+
   it('is for members only, and off without a delivering sender', async () => {
     const { id: meetupId } = await as(ana).meetups.create({ title: 'Closed' })
     await expect(
@@ -248,6 +268,38 @@ describe.skipIf(!url)('email invites against Postgres', () => {
       expect(email.sent).toHaveLength(INVITES_PER_DAY)
     } finally {
       await db.delete(user).where(eq(user.id, carl.id))
+    }
+  })
+
+  it('lists sent invites with who joined: all for the organizer, their own for members', async () => {
+    const dee = newUser('Dee')
+    await db.insert(user).values({ id: dee.id, email: dee.email, name: dee.name })
+    try {
+      const email = recordingEmail()
+      const { id: meetupId } = await as(ana).meetups.create({ title: 'Book club' })
+      await as(ben).meetups.join({ meetupId })
+      const other = `${randomUUID()}@example.com`
+      const bens = `${randomUUID()}@example.com`
+      // An invite to `other` from two days ago, before today's resend.
+      await db
+        .insert(meetupInvite)
+        .values({ meetupId, invitedBy: ana.id, email: other, createdAt: new Date(Date.now() - 48 * 60 * 60 * 1000) })
+      await as(ana, email).invites.send({ meetupId, emails: [dee.email.toLowerCase(), other] })
+      await as(ben, email).invites.send({ meetupId, emails: [bens] })
+      await as(dee).meetups.join({ meetupId })
+
+      const forAna = await as(ana).invites.list({ meetupId })
+      expect(
+        forAna.map(({ email, status, timesSent, invitedBy }) => ({ email, status, timesSent, by: invitedBy.name })),
+      ).toEqual([
+        { email: bens, status: 'invited', timesSent: 1, by: 'Ben' },
+        { email: other, status: 'invited', timesSent: 2, by: 'Ana' },
+        { email: dee.email.toLowerCase(), status: 'joined', timesSent: 1, by: 'Ana' },
+      ])
+      expect((await as(ben).invites.list({ meetupId })).map((i) => i.email)).toEqual([bens])
+      await expect(as(stranger).invites.list({ meetupId })).rejects.toMatchObject({ code: 'FORBIDDEN' })
+    } finally {
+      await db.delete(user).where(eq(user.id, dee.id))
     }
   })
 

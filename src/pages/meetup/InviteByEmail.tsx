@@ -1,5 +1,5 @@
 import { useForm } from '@tanstack/react-form'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { inviteEmailsField } from '../../../shared/schemas'
 import { useTRPC } from '../../lib/trpc'
@@ -28,7 +28,12 @@ export function InviteByEmail({ meetupId }: { meetupId: string }) {
   const trpc = useTRPC()
   const available = useQuery(trpc.invites.available.queryOptions())
   const [results, setResults] = useState<{ email: string; status: Status }[]>([])
-  const send = useMutation(trpc.invites.send.mutationOptions())
+  const queryClient = useQueryClient()
+  const send = useMutation(
+    trpc.invites.send.mutationOptions({
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: trpc.invites.list.pathKey() }),
+    }),
+  )
   const form = useForm({
     defaultValues: { emails: '' },
     validators: {
