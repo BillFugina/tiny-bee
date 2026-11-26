@@ -31,11 +31,18 @@ export function CheckIn({ meetupId }: { meetupId: string }) {
     defaultValues: { text: '' },
     validators: { onSubmit: messageForm },
     onSubmit: async ({ value, formApi }) => {
-      await send.mutateAsync({ meetupId, text: value.text })
-      formApi.reset()
+      try {
+        await send.mutateAsync({ meetupId, text: value.text })
+        formApi.reset()
+      } finally {
+        // The Send button is disabled while the planner answers, which drops
+        // focus when it was clicked; put the cursor back to keep chatting.
+        input.current?.focus()
+      }
     },
   })
 
+  const input = useRef<HTMLTextAreaElement>(null)
   const end = useRef<HTMLLIElement>(null)
   const count = history.data?.messages.length ?? 0
   useEffect(() => {
@@ -91,17 +98,21 @@ export function CheckIn({ meetupId }: { meetupId: string }) {
             <label>
               <span className="sr-only">Message the planner</span>
               <textarea
+                ref={input}
                 value={field.state.value}
                 rows={2}
                 maxLength={CHECKIN_TEXT_MAX}
                 placeholder="Like: I'm in Durham and can drive about an hour"
-                disabled={send.isPending}
+                // readOnly rather than disabled, so the box keeps focus while
+                // the planner answers.
+                readOnly={send.isPending}
+                aria-busy={send.isPending}
                 onBlur={field.handleBlur}
                 onChange={(e) => field.handleChange(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault()
-                    void form.handleSubmit()
+                    if (!send.isPending) void form.handleSubmit()
                   }
                 }}
               />
