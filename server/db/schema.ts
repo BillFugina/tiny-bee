@@ -463,3 +463,28 @@ export const memberConstraint = pgTable(
     index('member_constraint_member_idx').on(t.meetupId, t.userId),
   ],
 )
+
+/**
+ * An email invite a member sent. Kept so the same address isn't emailed about
+ * the same meetup twice in a day, and so one member can't send more than a
+ * handful a day. Addresses are stored lowercased.
+ */
+export const meetupInvite = pgTable(
+  'meetup_invite',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    meetupId: uuid('meetup_id').notNull(),
+    invitedBy: text('invited_by').notNull(),
+    email: text('email').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      columns: [t.meetupId, t.invitedBy],
+      foreignColumns: [meetupMember.meetupId, meetupMember.userId],
+      name: 'meetup_invite_member_fk',
+    }).onDelete('cascade'),
+    index('meetup_invite_email_idx').on(t.meetupId, t.email, t.createdAt),
+    index('meetup_invite_sender_idx').on(t.invitedBy, t.createdAt),
+  ],
+)

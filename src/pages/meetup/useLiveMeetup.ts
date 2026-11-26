@@ -33,7 +33,12 @@ export function useLiveMeetup(meetupId: string) {
       clearTimeout(refreshTimer)
       refreshTimer = setTimeout(() => {
         // The same queries the page refreshes after a member's own change.
-        for (const queryKey of [trpc.meetups.pathKey(), trpc.shortlist.pathKey(), trpc.vote.pathKey()]) {
+        for (const queryKey of [
+          trpc.meetups.pathKey(),
+          trpc.shortlist.pathKey(),
+          trpc.vote.pathKey(),
+          trpc.invites.list.pathKey(),
+        ]) {
           void queryClient.invalidateQueries({ queryKey })
         }
       }, REFRESH_DEBOUNCE_MS)

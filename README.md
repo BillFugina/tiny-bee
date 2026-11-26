@@ -57,6 +57,24 @@ which the server hands out to members only, and refetches through tRPC as
 usual. No meetup data goes through Ably. Without an `ABLY_API_KEY` pages
 refresh only after your own changes, and everything else works as before.
 
+### How email works
+
+Sign-in links and meetup invites go out through Resend's REST API (plain
+fetch, no SDK) from `noreply@notify.billfugina.com`, or whatever `EMAIL_FROM`
+says. Any member can email the meetup's link to up to 10 addresses at a time
+from the meetup page. People already in the meetup are skipped, the same
+address isn't emailed about the same meetup twice in 24 hours, and one member
+can send at most 20 invites a day, so the form can't be used to send mail in
+bulk. A send that hits a rate limit or a server error is retried twice with
+the same idempotency key, so a retry never sends a second copy. Without a
+`RESEND_API_KEY`, sign-in links are written to the server log instead and the
+invite form is hidden.
+
+Under the form, "Email invites" lists each invited address with when it was
+last sent and whether someone with that address has joined. The organizer sees
+every invite; other members see only the ones they sent, since the addresses
+belong to other people.
+
 ### How the vote stays anonymous
 
 When a member votes, one SQL statement writes two unlinked rows: a receipt
@@ -81,7 +99,8 @@ members, not from the operator.
 | Hosting  | Vercel: static SPA on the CDN, API as functions, a preview per branch          |
 | CI       | GitHub Actions: lint, format, typecheck, migrations, drift check, tests, build |
 
-Later: Ably (realtime) and Inngest (durable workflows) behind adapters.
+Ably (live updates) and Resend (email) sit behind small adapters. Later: Inngest
+(durable workflows) behind one too.
 
 ## Layout
 
@@ -91,6 +110,7 @@ server/         tRPC routers, Better Auth, Drizzle schema and client, env
 server/meetups/ meetup logic the routers call: members, shortlist, vote
 server/agent/   the private check-in: planner prompt, tools and turn loop
 server/mcp/     the MCP server for members' own agents (wraps the planner tools)
+server/email/   the email adapter (Resend or the log) and the email templates
 shared/         zod schemas used by both the browser and the server
 domain/         pure logic with no I/O: the fairness engine and the instant-runoff count
 src/            React app
@@ -111,8 +131,8 @@ npm run dev               # web on http://localhost:5173, API on :3001
 ```
 
 `npm run dev` runs Vite and a small Node server that serves the same handlers
-the Vercel functions use, so local behaves like a deploy. Magic links are
-written to the API's log until an email provider is added.
+the Vercel functions use, so local behaves like a deploy. Without a
+`RESEND_API_KEY` in `.env`, magic links are written to the API's log.
 
 ## Changing the database
 
@@ -141,7 +161,11 @@ CI fails if the schema and the migrations disagree.
 5. Optional: add `ABLY_API_KEY` for Production and Preview so pages refresh
    by themselves. Create the key in Ably with only Publish and Subscribe, and
    limit it to channels matching `meetup:*`.
-6. Push a branch: Vercel builds a preview, the build migrates that preview's
+6. Optional: add `RESEND_API_KEY` for Production and Preview to email sign-in
+   links and invites. Verify the sending domain in Resend first and give the
+   key sending access only. `EMAIL_FROM` changes the sender (default
+   `tiny-bee <noreply@notify.billfugina.com>`).
+7. Push a branch: Vercel builds a preview, the build migrates that preview's
    Neon branch (`npm run vercel-build`), and the PR gets a link.
 
 ## Scripts

@@ -4,6 +4,7 @@ import { ZodError } from 'zod'
 import type { PlannerConfig, PlannerModel } from './agent/model.js'
 import { afterResponse, type LiveUpdates } from './live/live.js'
 import type { Db } from './db/client.js'
+import type { EmailSender } from './email/email.js'
 import type { TownDirectory } from './places/directory.js'
 
 export interface SessionUser {
@@ -22,6 +23,8 @@ export interface Context {
   origin?: string | null
   /** Tells other members' open pages to refresh. Absent in tests. */
   live?: LiveUpdates
+  /** Sends invite emails. Absent in tests that don't need it. */
+  email?: EmailSender
 }
 
 const t = initTRPC.context<Context>().create({
