@@ -91,8 +91,8 @@
   --body: #e7e5e4;
   --muted: #d6d3d1;
   --faint: #a8a29e;
-  --border: #451a03;
-  --border-strong: rgb(252 211 77 / 25%);
+  --border: rgb(252 211 77 / 20%);
+  --border-strong: rgb(252 211 77 / 32%);
   --input-border: #78350f;
   --accent-text: #fcd34d;
   --accent-soft: rgb(245 158 11 / 15%);
@@ -122,8 +122,8 @@
     --body: #e7e5e4;
     --muted: #d6d3d1;
     --faint: #a8a29e;
-    --border: #451a03;
-    --border-strong: rgb(252 211 77 / 25%);
+    --border: rgb(252 211 77 / 20%);
+    --border-strong: rgb(252 211 77 / 32%);
     --input-border: #78350f;
     --accent-text: #fcd34d;
     --accent-soft: rgb(245 158 11 / 15%);
