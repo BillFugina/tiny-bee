@@ -7,9 +7,7 @@ export function AgentsPage({ origin = window.location.origin }: { origin?: strin
 
   return (
     <section className="stack page-narrow">
-      <p className="eyebrow">
-        For the technically curious
-      </p>
+      <p className="eyebrow">For the technically curious</p>
       <h1 className="display">Plan with your own AI agent</h1>
       <p>
         tiny-bee has an MCP server, so the agent you already use (Claude, Codex or any app that speaks MCP) can join
