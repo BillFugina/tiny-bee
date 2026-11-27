@@ -12,7 +12,13 @@ const STAGE_LABEL: Record<Stage, string> = {
   decided: 'Meetup decided',
 }
 
-const closesAt = new Intl.DateTimeFormat(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' })
+const closesAt = new Intl.DateTimeFormat(undefined, {
+  weekday: 'short',
+  month: 'short',
+  day: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+})
 
 /** The band under the site header on a meetup page: title, stage, members and the invite button. */
 export function StatusBand(props: {

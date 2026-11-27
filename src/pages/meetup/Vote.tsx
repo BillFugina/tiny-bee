@@ -5,7 +5,13 @@ import { readBallotToken, saveBallotToken } from '../../lib/ballotToken'
 import { useTRPC } from '../../lib/trpc'
 import { useInvalidateMeetup } from './useInvalidateMeetup'
 
-const closesAt = new Intl.DateTimeFormat(undefined, { weekday: 'long', hour: 'numeric', minute: '2-digit' })
+const closesAt = new Intl.DateTimeFormat(undefined, {
+  weekday: 'long',
+  month: 'short',
+  day: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+})
 
 /** The voting screen: rank the shortlist and cast or change your ballot. */
 export function Vote({ meetupId, userId }: { meetupId: string; userId: string }) {
