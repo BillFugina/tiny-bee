@@ -28,6 +28,9 @@ works today and what's planned.
 - **Live updates:** open meetup pages refresh when anyone makes a change.
 - **Readable by agents:** the home page and /agents are served as plain HTML,
   with `robots.txt` and `llms.txt`.
+- **Light and dark themes:** a warm honey look in light mode and a dark look in
+  dark mode. The app follows the device's setting until a member picks one with
+  the switch in the header, and remembers that choice on the device.
 
 ### Planned
 
@@ -69,6 +72,14 @@ Wish list:
   members' check-ins.
 - **Repeat a meetup:** start the next one with the same group and settings in one
   tap.
+
+From the design mockups, not built yet:
+
+- **Notifications:** an in-app list of what changed in your meetups.
+- **Meetup details:** a purpose, a date and a countdown to the day.
+- **Drag to rank:** reorder the ballot by dragging instead of with buttons.
+- **Drive times on the result:** each member's drive to the winning town on the
+  results card.
 
 ## How it works
 

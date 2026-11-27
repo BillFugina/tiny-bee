@@ -6,8 +6,12 @@ export function AgentsPage({ origin = window.location.origin }: { origin?: strin
   const serverUrl = `${origin}/api/mcp`
 
   return (
-    <section className="stack">
-      <h1>Plan with your own AI agent</h1>
+    <section className="stack page-narrow">
+      <p className="eyebrow">
+        <span className="eyebrow__line" aria-hidden="true" />
+        For the technically curious
+      </p>
+      <h1 className="display">Plan with your own AI agent</h1>
       <p>
         tiny-bee has an MCP server, so the agent you already use (Claude, Codex or any app that speaks MCP) can join
         your meetups and plan with you. Once you sign in and approve it, it acts as you, and only in meetups you're in.

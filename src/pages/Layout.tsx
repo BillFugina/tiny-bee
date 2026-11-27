@@ -1,5 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { Link, Outlet, useNavigate } from 'react-router'
+import { SiteFooter } from '../components/SiteFooter'
+import { SiteHeader } from '../components/SiteHeader'
 import { authClient } from '../lib/auth-client'
 
 export function Layout() {
@@ -15,30 +17,30 @@ export function Layout() {
 
   return (
     <div className="shell">
-      <header>
-        <Link to="/" className="brand">
-          Tiny Bee
-        </Link>
-        <nav>
-          {session ? (
-            <>
-              <span className="muted">{session.user.email}</span>
-              <button type="button" onClick={signOut}>
-                Sign out
-              </button>
-            </>
-          ) : (
-            <Link to="/sign-in">Sign in</Link>
-          )}
-        </nav>
-      </header>
-      <main>
+      <SiteHeader
+        brand={(content) => (
+          <Link to="/" className="brand" aria-label="Tiny Bee home">
+            {content}
+          </Link>
+        )}
+      >
+        {session ? (
+          <>
+            <span className="muted small site-header__email">{session.user.email}</span>
+            <button type="button" className="pill-button" onClick={signOut}>
+              Sign out
+            </button>
+          </>
+        ) : (
+          <Link to="/sign-in" className="pill-button">
+            Sign in
+          </Link>
+        )}
+      </SiteHeader>
+      <main className="page">
         <Outlet />
       </main>
-      <footer className="muted small">
-        Town data from <a href="https://www.geonames.org/">GeoNames</a>, licensed under{' '}
-        <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>.
-      </footer>
+      <SiteFooter />
     </div>
   )
 }

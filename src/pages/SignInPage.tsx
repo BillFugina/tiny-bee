@@ -69,7 +69,7 @@ export function SignInPage() {
   }
 
   return (
-    <section>
+    <section className="auth">
       <h1>{mode === 'sign-in' ? 'Sign in' : 'Create an account'}</h1>
       {forAgent ? <p className="muted">Sign in to connect your agent to tiny-bee. You'll approve it next.</p> : null}
       <form
