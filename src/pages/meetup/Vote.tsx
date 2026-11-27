@@ -1,5 +1,5 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
 import { ArrowDownIcon, ArrowUpIcon, InfoIcon, MapPinIcon, PlusIcon, VoteIcon, XIcon } from '../../components/icons'
 import { readBallotToken, saveBallotToken } from '../../lib/ballotToken'
 import { useTRPC } from '../../lib/trpc'
@@ -17,6 +17,13 @@ const closesAt = new Intl.DateTimeFormat(undefined, {
 export function Vote({ meetupId, userId }: { meetupId: string; userId: string }) {
   const trpc = useTRPC()
   const status = useQuery(trpc.vote.status.queryOptions({ meetupId }))
+  const queryClient = useQueryClient()
+  const closed = !!status.data && status.data.phase !== 'voting'
+  useEffect(() => {
+    // A passed deadline closes the vote when status is read, without a live
+    // update; refresh the meetup so the page moves on to the results.
+    if (closed) void queryClient.invalidateQueries({ queryKey: trpc.meetups.pathKey() })
+  }, [closed, queryClient, trpc])
 
   if (!status.data) return status.error ? <p className="error">{status.error.message}</p> : null
   const s = status.data
