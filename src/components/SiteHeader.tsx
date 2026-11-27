@@ -3,28 +3,36 @@ import { toggleTheme, useTheme } from '../lib/theme'
 import { LogoIcon, MoonIcon, SunIcon } from './icons'
 
 /**
- * The bar across the top of every page: the brand, the theme switch and the
- * page's own links (sign in, or the member's email and sign out). Shared by the
+ * The bar across the top of every page: the brand, the open meetup's title
+ * (on a meetup page), the theme switch and the page's own links. Shared by the
  * app and the prerendered pages, so `brand` is a link element the caller makes.
  */
-export function SiteHeader({ brand, children }: { brand: (content: ReactNode) => ReactNode; children: ReactNode }) {
+export function SiteHeader(props: {
+  brand: (content: ReactNode) => ReactNode
+  activeMeetup?: string | null
+  children: ReactNode
+}) {
   return (
     <header className="site-header">
       <div className="site-header__inner">
-        {brand(
+        {props.brand(
           <>
             <span className="brand__mark" aria-hidden="true">
-              <LogoIcon size={20} />
+              <LogoIcon size={22} />
             </span>
-            <span className="brand__name">
-              Tiny Bee<span className="brand__dot">.</span>
-            </span>
+            <span className="brand__name">Tiny Bee</span>
           </>,
         )}
-        <nav className="site-header__nav">
+        {props.activeMeetup ? (
+          <p className="site-header__active">
+            <span className="site-header__active-label">Active meetup</span>
+            <span className="site-header__active-title">{props.activeMeetup}</span>
+          </p>
+        ) : null}
+        <nav className="site-header__nav" aria-label="Account">
           <ThemeToggle />
           <span className="site-header__divider" aria-hidden="true" />
-          {children}
+          {props.children}
         </nav>
       </div>
     </header>
@@ -43,7 +51,7 @@ export function ThemeToggle() {
       aria-label={`Switch to ${next} mode`}
       title={`Switch to ${next} mode`}
     >
-      {theme === 'dark' ? <SunIcon size={18} /> : <MoonIcon size={18} />}
+      {theme === 'dark' ? <SunIcon size={20} /> : <MoonIcon size={20} />}
     </button>
   )
 }

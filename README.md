@@ -28,6 +28,9 @@ works today and what's planned.
 - **Live updates:** open meetup pages refresh when anyone makes a change.
 - **Readable by agents:** the home page and /agents are served as plain HTML,
   with `robots.txt` and `llms.txt`.
+- **A screen for each step:** the meetup page follows the group from the
+  private planner, to the fairest towns and shortlist, to the ranked vote and
+  the result, with the invite link and members a tap away in the header band.
 - **Light and dark themes:** a warm honey look, in light and dark versions. The
   app follows the device's setting until a member picks one with the switch in
   the header, and remembers that choice on the device.
@@ -78,8 +81,11 @@ From the design mockups, not built yet:
 - **Notifications:** an in-app list of what changed in your meetups.
 - **Meetup details:** a purpose, a date and a countdown to the day.
 - **Drag to rank:** reorder the ballot by dragging instead of with buttons.
-- **Drive times on the result:** each member's drive to the winning town on the
-  results card.
+- **Share shortlist:** send the current shortlist to the group from the towns
+  screen.
+- **Sort and town menus:** sort the fairest towns and act on a town from its
+  card.
+- **Profile menu:** a menu under the profile button in the header.
 
 ## How it works
 

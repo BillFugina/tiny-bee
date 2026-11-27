@@ -1,5 +1,5 @@
 import { TRPCError } from '@trpc/server'
-import { and, count, desc, eq } from 'drizzle-orm'
+import { and, count, desc, eq, sql } from 'drizzle-orm'
 import { estimatedTravelTimes, findFairAreas, geometricMedian, distanceKm, type Traveler } from '../../domain/index.js'
 import type { Db } from '../db/client.js'
 import { meetup, meetupMember, user } from '../db/schema.js'
@@ -25,7 +25,17 @@ export async function createMeetup(db: Db, input: { title: string }, userId: str
 
 export function listMyMeetups(db: Db, userId: string) {
   return db
-    .select({ id: meetup.id, title: meetup.title, role: meetupMember.role, createdAt: meetup.createdAt })
+    .select({
+      id: meetup.id,
+      title: meetup.title,
+      role: meetupMember.role,
+      phase: meetup.phase,
+      createdAt: meetup.createdAt,
+      memberCount:
+        sql<number>`(select count(*) from meetup_member as others where others.meetup_id = ${meetup.id})`.mapWith(
+          Number,
+        ),
+    })
     .from(meetupMember)
     .innerJoin(meetup, eq(meetup.id, meetupMember.meetupId))
     .where(eq(meetupMember.userId, userId))

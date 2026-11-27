@@ -5,8 +5,12 @@ import { Link, useNavigate } from 'react-router'
 import { createMeetupInput } from '../../shared/schemas'
 import {
   ArrowRightIcon,
+  ArrowUpRightIcon,
   BotIcon,
+  CalendarIcon,
+  CheckIcon,
   CheckSquareIcon,
+  ClockIcon,
   MapPinIcon,
   PlusIcon,
   SparklesIcon,
@@ -21,24 +25,30 @@ export function HomePage() {
   const { data: session, isPending } = authClient.useSession()
   const status = <ApiStatus text={describeHealth(health)} ok={health.data?.ok} />
 
-  if (isPending) return <HomeHero status={status} />
+  if (isPending) return <HomeHero />
   if (session) {
     return (
-      <div className="home">
-        <HomeHero compact status={status} />
-        <MyMeetups />
+      <div className="home home--dashboard">
+        <HomeHero lead={DASHBOARD_LEAD} />
+        <MyMeetups status={status} />
         <AgentCallout />
       </div>
     )
   }
   return (
     <div className="home">
-      <HomeHero status={status} action={<SignInPrompt />} figure />
+      <HomeHero action={<SignInPrompt />} status={status} figure />
       <HowItWorks />
       <AgentCallout />
     </div>
   )
 }
+
+const DASHBOARD_LEAD =
+  'Tiny Bee makes getting everyone together feel easy. Start with a name, then let the group shape the plan.'
+
+const VISITOR_LEAD =
+  "Tiny Bee helps a group find a place to meet that's fair to everyone. Each member privately tells the planner where they're starting from and how far they'll drive, then Tiny Bee suggests the fairest towns, builds a shortlist and runs a ranked-choice vote."
 
 /** The home page as a signed-out visitor sees it, with no data to load. Rendered to HTML at build time. */
 export function SignedOutHome() {
@@ -51,22 +61,18 @@ export function SignedOutHome() {
   )
 }
 
-function HomeHero(props: { compact?: boolean; figure?: boolean; action?: ReactNode; status?: ReactNode }) {
+function HomeHero(props: { lead?: string; figure?: boolean; action?: ReactNode; status?: ReactNode }) {
   return (
-    <section className={props.compact ? 'hero hero--compact' : 'hero'} aria-labelledby="home-title">
+    <section className={props.figure ? 'hero hero--figure' : 'hero'} aria-labelledby="home-title">
       <div className="hero__copy">
         <p className="eyebrow">
-          <span className="eyebrow__line" aria-hidden="true" />A better way to get there
+          <SparklesIcon size={14} />
+          Your next good plan
         </p>
         <h1 id="home-title" className="hero__title">
-          Plan a meetup <span className="hero__soft">everyone can</span>{' '}
-          <span className="hero__mark">actually make</span>
+          Make time for the people you like.
         </h1>
-        <p className="lead">
-          Tiny Bee helps a group find a place to meet that's fair to everyone. Each member privately tells the planner
-          where they're starting from and how far they'll drive, then Tiny Bee suggests the fairest towns, builds a
-          shortlist and runs a ranked-choice vote.
-        </p>
+        <p className="lead">{props.lead ?? VISITOR_LEAD}</p>
         {props.action || props.status ? (
           <div className="hero__actions">
             {props.action}
@@ -165,12 +171,9 @@ function HowItWorks() {
   return (
     <section className="how" aria-labelledby="how-title">
       <div className="how__intro">
-        <p className="eyebrow">
-          <span className="eyebrow__line" aria-hidden="true" />
-          How it works
-        </p>
+        <p className="kicker">How it works</p>
         <h2 id="how-title" className="display">
-          Good plans start <span className="hero__soft">in the middle</span>
+          Good plans start in the middle
         </h2>
       </div>
       <ol className="steps-list">
@@ -232,7 +235,15 @@ function describeHealth(health: {
 
 const startedOn = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 
-function MyMeetups() {
+type Phase = 'planning' | 'voting' | 'decided'
+
+const PHASE_CARD: Record<Phase, { label: string; place: string; icon: typeof UsersIcon }> = {
+  planning: { label: 'Gathering', place: 'Picking a place together', icon: UsersIcon },
+  voting: { label: 'Voting', place: 'Voting on the shortlist', icon: SparklesIcon },
+  decided: { label: 'Finished', place: 'Place decided', icon: CheckIcon },
+}
+
+function MyMeetups({ status }: { status: ReactNode }) {
   const trpc = useTRPC()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -253,15 +264,22 @@ function MyMeetups() {
     },
   })
 
+  const count = meetups.data?.length ?? 0
   return (
     <>
       <section className="start-card" aria-labelledby="start-title">
         <div className="start-card__panel">
-          <span className="start-card__plus" aria-hidden="true">
-            <PlusIcon size={20} />
-          </span>
-          <h2 id="start-title">Start a meetup</h2>
-          <p>Give it a name. The rest comes together as the group checks in.</p>
+          <div>
+            <span className="start-card__plus" aria-hidden="true">
+              <PlusIcon size={20} />
+            </span>
+            <h2 id="start-title">Start a Meetup</h2>
+            <p>Give the idea a name. The rest can come together as you go.</p>
+          </div>
+          <p className="start-card__note">
+            <span className="start-card__dot" aria-hidden="true" />
+            No group chat archaeology required.
+          </p>
         </div>
         <form
           className="start-card__form"
@@ -273,13 +291,13 @@ function MyMeetups() {
           <form.Field name="title">
             {(field) => (
               <label>
-                New meetup
+                Meetup name
                 <input
                   name={field.name}
                   value={field.state.value}
                   onBlur={field.handleBlur}
                   onChange={(e) => field.handleChange(e.target.value)}
-                  placeholder="Saturday brunch"
+                  placeholder="e.g. Sunday market stroll"
                 />
                 {field.state.meta.errors.map((err, i) => (
                   <span key={i} className="error">
@@ -291,8 +309,8 @@ function MyMeetups() {
           </form.Field>
           <form.Subscribe selector={(s) => s.isSubmitting}>
             {(isSubmitting) => (
-              <button type="submit" className="button" disabled={isSubmitting}>
-                {isSubmitting ? 'Creating…' : 'Create'} <ArrowRightIcon size={16} />
+              <button type="submit" className="button button--gradient" disabled={isSubmitting}>
+                {isSubmitting ? 'Starting…' : 'Start planning'} <ArrowUpRightIcon size={16} />
               </button>
             )}
           </form.Subscribe>
@@ -303,38 +321,62 @@ function MyMeetups() {
       <section aria-labelledby="your-meetups">
         <div className="section-head">
           <div>
-            <p className="eyebrow">
-              <span className="eyebrow__line" aria-hidden="true" />
-              Your plans
-            </p>
-            <h2 id="your-meetups" className="display">
-              Your meetups
+            <p className="kicker">Your plans</p>
+            <h2 id="your-meetups" className="section-title">
+              Your Meetups
             </h2>
           </div>
+          {count ? (
+            <p className="muted small">{count === 1 ? '1 plan, old and new' : `${count} plans, old and new`}</p>
+          ) : null}
         </div>
         {meetups.isPending ? (
           <p className="muted">Loading…</p>
         ) : meetups.data?.length ? (
           <ul className="meetup-grid">
-            {meetups.data.map((m) => (
-              <li key={m.id}>
-                <Link to={`/m/${m.id}`} className="meetup-card">
-                  <span className="meetup-card__top">
-                    <span className="tag">
-                      <UsersIcon size={13} />
-                      {m.role}
+            {meetups.data.map((m) => {
+              const card = PHASE_CARD[m.phase]
+              return (
+                <li key={m.id}>
+                  <Link to={`/m/${m.id}`} className="meetup-card">
+                    <span className="meetup-card__top">
+                      <span className={`tag tag--${m.phase}`}>
+                        <card.icon size={13} />
+                        {card.label}
+                      </span>
+                      <ArrowUpRightIcon size={16} className="meetup-card__arrow" />
                     </span>
-                    <ArrowRightIcon size={16} className="meetup-card__arrow" />
-                  </span>
-                  <span className="meetup-card__title">{m.title}</span>
-                  <span className="meetup-card__meta muted small">Started {startedOn.format(m.createdAt)}</span>
-                </Link>
-              </li>
-            ))}
+                    <span className="meetup-card__title">{m.title}</span>
+                    <span className="meetup-card__role">
+                      {m.role === 'organizer' ? "You're organizing this one." : "You're in this one."}
+                    </span>
+                    <span className="meetup-card__facts">
+                      <span>
+                        <CalendarIcon size={15} />
+                        Started {startedOn.format(m.createdAt)}
+                      </span>
+                      <span>
+                        <MapPinIcon size={15} />
+                        {card.place}
+                      </span>
+                      <span>
+                        <UsersIcon size={15} />
+                        {m.memberCount === 1 ? '1 member' : `${m.memberCount} members`}
+                      </span>
+                    </span>
+                  </Link>
+                </li>
+              )
+            })}
           </ul>
         ) : (
-          <p className="muted">None yet.</p>
+          <p className="empty-note">No meetups yet. Start one above and share its link.</p>
         )}
+        <p className="home-foot">
+          <ClockIcon size={14} />
+          Past meetups stay here as little reminders.
+        </p>
+        <div className="home-status">{status}</div>
       </section>
     </>
   )

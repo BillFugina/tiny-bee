@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { MemoryRouter } from 'react-router'
+import { MapBackground } from './components/MapBackground'
 import { SiteFooter } from './components/SiteFooter'
 import { SiteHeader } from './components/SiteHeader'
 import { AgentsPage } from './pages/AgentsPage'
@@ -14,6 +15,7 @@ function renderPage(path: string, page: ReactNode): string {
   return renderToString(
     <MemoryRouter initialEntries={[path]}>
       <div className="shell">
+        <MapBackground />
         <SiteHeader
           brand={(content) => (
             <a href="/" className="brand" aria-label="Tiny Bee home">

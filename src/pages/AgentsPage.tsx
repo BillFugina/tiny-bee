@@ -8,7 +8,6 @@ export function AgentsPage({ origin = window.location.origin }: { origin?: strin
   return (
     <section className="stack page-narrow">
       <p className="eyebrow">
-        <span className="eyebrow__line" aria-hidden="true" />
         For the technically curious
       </p>
       <h1 className="display">Plan with your own AI agent</h1>

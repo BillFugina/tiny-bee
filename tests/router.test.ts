@@ -81,7 +81,15 @@ describe.skipIf(!url)('meetups against Postgres', () => {
     expect(created.title).toBe('Saturday brunch')
 
     const mine = await as(me).meetups.listMine()
-    expect(mine).toEqual([expect.objectContaining({ id: created.id, title: 'Saturday brunch', role: 'organizer' })])
+    expect(mine).toEqual([
+      expect.objectContaining({
+        id: created.id,
+        title: 'Saturday brunch',
+        role: 'organizer',
+        phase: 'planning',
+        memberCount: 1,
+      }),
+    ])
   })
 
   it('lets someone with the link join, set a start and see fair areas', async () => {
