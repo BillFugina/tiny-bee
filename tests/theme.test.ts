@@ -37,7 +37,7 @@ describe('theme', () => {
   it('follows the device until the member picks, and forgets a pick that matches the device', async () => {
     const storage = fakeStorage()
     const html = setup(false, storage)
-    const theme = await import('../src/lib/theme')
+    const theme = await import('../src/lib/theme.js')
     expect(theme.currentTheme()).toBe('light')
     theme.toggleTheme()
     expect(theme.currentTheme()).toBe('dark')
@@ -50,7 +50,7 @@ describe('theme', () => {
 
   it('keeps the switch working when storage writes are blocked', async () => {
     const html = setup(false, fakeStorage({ blockWrites: true }))
-    const theme = await import('../src/lib/theme')
+    const theme = await import('../src/lib/theme.js')
     theme.toggleTheme()
     expect(theme.currentTheme()).toBe('dark')
     expect(html.dataset.theme).toBe('dark')
@@ -60,7 +60,7 @@ describe('theme', () => {
 
   it('keeps the switch working when storage is off entirely', async () => {
     const html = setup(true, fakeStorage({ blockAll: true }))
-    const theme = await import('../src/lib/theme')
+    const theme = await import('../src/lib/theme.js')
     expect(theme.currentTheme()).toBe('dark')
     theme.toggleTheme()
     expect(theme.currentTheme()).toBe('light')
