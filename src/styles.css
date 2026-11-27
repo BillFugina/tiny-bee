@@ -1,5 +1,5 @@
 /*
- * Two themes from the MagicPath designs: Honey (light) and Dark.
+ * The Honey design from MagicPath, in its light and dark versions.
  * Every rule below reads these tokens, so a theme is only its token block.
  * The page follows the device's setting until the member flips the switch
  * (src/lib/theme.ts sets data-theme on <html>). Without JavaScript, the media
@@ -32,6 +32,7 @@
   --dark-button-bg: #1c1409;
   --dark-button-fg: #fff8e7;
   --dark-button-border: #1c1409;
+  --input-border: var(--border);
 
   --radius-sm: 10px;
   --radius: 14px;
@@ -79,146 +80,66 @@
   --start-stroke: #fffdf7;
 }
 
-/* Dark is listed twice: once for the switch, once for devices set to dark with no choice made. */
+/* Honey after dark. Only colors change; it is listed twice: once for the switch, once for devices set to dark with no choice made. */
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --bg: #0f0f0f;
-  --surface: #141613;
-  --surface-2: #1a1c19;
-  --surface-tint: #1d2116;
-  --fg: #f1f2e9;
-  --body: #aeb2a7;
-  --muted: #969b90;
-  --faint: #73786e;
-  --border: #2b2e2a;
-  --border-strong: #464a42;
-  --accent: #c8f135;
-  --accent-hover: #d7ff58;
-  --accent-ink: #10120d;
-  --accent-text: #c8f135;
-  --accent-soft: rgb(200 241 53 / 12%);
-  --accent-soft-ink: #c8f135;
-  --error: #ff8a7a;
-  --ok: #c8f135;
-  --header-bg: rgb(15 15 15 / 85%);
-  --glow-1: rgb(200 241 53 / 5%);
-  --glow-2: rgb(200 241 53 / 3%);
-  --map-line: rgb(241 242 233 / 4%);
-  --dark-button-bg: transparent;
-  --dark-button-fg: #c8f135;
-  --dark-button-border: #c8f135;
-  --radius-sm: 2px;
-  --radius: 2px;
-  --radius-lg: 2px;
-  --radius-button: 2px;
-  --shadow-sm: none;
-  --shadow: none;
-  --ring: 0 0 0 3px rgb(200 241 53 / 25%);
-  --font-body: 'DM Sans Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-display: 'Barlow Condensed', 'Arial Narrow', sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
-  --font-label: var(--font-mono);
-  --display-transform: uppercase;
-  --display-weight: 700;
-  --display-tracking: -0.025em;
-  --display-leading: 0.88;
-  --heading-weight: 700;
-  --heading-tracking: -0.01em;
-  --hero-size: clamp(3.6rem, 8vw, 7.25rem);
-  --h2-size: 1.6rem;
-  --soft-color: var(--muted);
-  --mark-underline: none;
-  --mark-after: '.';
-  --eyebrow-color: var(--muted);
-  --eyebrow-bg: transparent;
-  --eyebrow-border: transparent;
-  --eyebrow-pad: 0;
-  --eyebrow-line: inline-block;
-  --brand-mark: none;
-  --brand-dot: inline;
-  --steps-cols: minmax(0, 1fr);
-  --step-bg: transparent;
-  --step-border: 0;
-  --step-rule: 1px;
-  --step-pad: 26px 0;
-  --step-icon: none;
-  --step-number: inline;
-  --how-cols: 0.8fr 1.2fr;
-  --how-align: start;
-  --callout-border: var(--accent);
-  --start-fill: #141613;
-  --start-stroke: #c8f135;
+  --bg: #1c1409;
+  --surface: #2d2010;
+  --surface-2: #1c1409;
+  --surface-tint: rgb(245 158 11 / 15%);
+  --fg: #fff8e7;
+  --body: #e7e5e4;
+  --muted: #d6d3d1;
+  --faint: #a8a29e;
+  --border: #451a03;
+  --border-strong: rgb(252 211 77 / 25%);
+  --input-border: #78350f;
+  --accent-text: #fcd34d;
+  --accent-soft: rgb(245 158 11 / 15%);
+  --accent-soft-ink: #fde68a;
+  --error: #fda29b;
+  --ok: #4ade80;
+  --header-bg: rgb(45 32 16 / 82%);
+  --glow-1: rgb(120 53 15 / 18%);
+  --glow-2: rgb(113 63 18 / 14%);
+  --map-line: rgb(252 211 77 / 7%);
+  --dark-button-bg: #fff8e7;
+  --dark-button-fg: #1c1409;
+  --dark-button-border: #fff8e7;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 30%);
+  --shadow: 0 20px 60px -35px rgb(245 158 11 / 30%);
+  --start-stroke: #2d2010;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
     color-scheme: dark;
-    --bg: #0f0f0f;
-    --surface: #141613;
-    --surface-2: #1a1c19;
-    --surface-tint: #1d2116;
-    --fg: #f1f2e9;
-    --body: #aeb2a7;
-    --muted: #969b90;
-    --faint: #73786e;
-    --border: #2b2e2a;
-    --border-strong: #464a42;
-    --accent: #c8f135;
-    --accent-hover: #d7ff58;
-    --accent-ink: #10120d;
-    --accent-text: #c8f135;
-    --accent-soft: rgb(200 241 53 / 12%);
-    --accent-soft-ink: #c8f135;
-    --error: #ff8a7a;
-    --ok: #c8f135;
-    --header-bg: rgb(15 15 15 / 85%);
-    --glow-1: rgb(200 241 53 / 5%);
-    --glow-2: rgb(200 241 53 / 3%);
-    --map-line: rgb(241 242 233 / 4%);
-    --dark-button-bg: transparent;
-    --dark-button-fg: #c8f135;
-    --dark-button-border: #c8f135;
-    --radius-sm: 2px;
-    --radius: 2px;
-    --radius-lg: 2px;
-    --radius-button: 2px;
-    --shadow-sm: none;
-    --shadow: none;
-    --ring: 0 0 0 3px rgb(200 241 53 / 25%);
-    --font-body: 'DM Sans Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
-    --font-display: 'Barlow Condensed', 'Arial Narrow', sans-serif;
-    --font-mono: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
-    --font-label: var(--font-mono);
-    --display-transform: uppercase;
-    --display-weight: 700;
-    --display-tracking: -0.025em;
-    --display-leading: 0.88;
-    --heading-weight: 700;
-    --heading-tracking: -0.01em;
-    --hero-size: clamp(3.6rem, 8vw, 7.25rem);
-    --h2-size: 1.6rem;
-    --soft-color: var(--muted);
-    --mark-underline: none;
-    --mark-after: '.';
-    --eyebrow-color: var(--muted);
-    --eyebrow-bg: transparent;
-    --eyebrow-border: transparent;
-    --eyebrow-pad: 0;
-    --eyebrow-line: inline-block;
-    --brand-mark: none;
-    --brand-dot: inline;
-    --steps-cols: minmax(0, 1fr);
-    --step-bg: transparent;
-    --step-border: 0;
-    --step-rule: 1px;
-    --step-pad: 26px 0;
-    --step-icon: none;
-    --step-number: inline;
-    --how-cols: 0.8fr 1.2fr;
-    --how-align: start;
-    --callout-border: var(--accent);
-    --start-fill: #141613;
-    --start-stroke: #c8f135;
+    --bg: #1c1409;
+    --surface: #2d2010;
+    --surface-2: #1c1409;
+    --surface-tint: rgb(245 158 11 / 15%);
+    --fg: #fff8e7;
+    --body: #e7e5e4;
+    --muted: #d6d3d1;
+    --faint: #a8a29e;
+    --border: #451a03;
+    --border-strong: rgb(252 211 77 / 25%);
+    --input-border: #78350f;
+    --accent-text: #fcd34d;
+    --accent-soft: rgb(245 158 11 / 15%);
+    --accent-soft-ink: #fde68a;
+    --error: #fda29b;
+    --ok: #4ade80;
+    --header-bg: rgb(45 32 16 / 82%);
+    --glow-1: rgb(120 53 15 / 18%);
+    --glow-2: rgb(113 63 18 / 14%);
+    --map-line: rgb(252 211 77 / 7%);
+    --dark-button-bg: #fff8e7;
+    --dark-button-fg: #1c1409;
+    --dark-button-border: #fff8e7;
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 30%);
+    --shadow: 0 20px 60px -35px rgb(245 158 11 / 30%);
+    --start-stroke: #2d2010;
   }
 }
 
@@ -423,7 +344,7 @@ textarea {
   font: inherit;
   padding: 11px 14px;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
+  border: 1px solid var(--input-border);
   background: var(--surface-2);
   color: var(--fg);
   transition:

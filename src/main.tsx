@@ -12,10 +12,7 @@ import { Layout } from './pages/Layout'
 import { HomePage } from './pages/HomePage'
 import { MeetupPage } from './pages/MeetupPage'
 import { SignInPage } from './pages/SignInPage'
-import '@fontsource-variable/dm-sans'
 import '@fontsource-variable/inter'
-import '@fontsource/barlow-condensed/700.css'
-import '@fontsource/ibm-plex-mono/400.css'
 import './styles.css'
 
 const router = createBrowserRouter([

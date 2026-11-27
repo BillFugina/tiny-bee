@@ -28,9 +28,9 @@ works today and what's planned.
 - **Live updates:** open meetup pages refresh when anyone makes a change.
 - **Readable by agents:** the home page and /agents are served as plain HTML,
   with `robots.txt` and `llms.txt`.
-- **Light and dark themes:** a warm honey look in light mode and a dark look in
-  dark mode. The app follows the device's setting until a member picks one with
-  the switch in the header, and remembers that choice on the device.
+- **Light and dark themes:** a warm honey look, in light and dark versions. The
+  app follows the device's setting until a member picks one with the switch in
+  the header, and remembers that choice on the device.
 
 ### Planned
 
