@@ -14,21 +14,28 @@ export type Theme = 'light' | 'dark'
 export const STORAGE_KEY = 'tiny-bee:theme'
 const DARK_QUERY = '(prefers-color-scheme: dark)'
 
+// Holds the choice for this page when browser storage can't (private windows,
+// blocked site data), so the switch still works until the page is closed.
+let memoryChoice: Theme | null = null
+let storageFailed = false
+
 function readChoice(): Theme | null {
+  if (storageFailed) return memoryChoice
   try {
     const value = localStorage.getItem(STORAGE_KEY)
     return value === 'light' || value === 'dark' ? value : null
   } catch {
-    return null
+    return memoryChoice
   }
 }
 
 function writeChoice(theme: Theme | null) {
+  memoryChoice = theme
   try {
     if (theme) localStorage.setItem(STORAGE_KEY, theme)
     else localStorage.removeItem(STORAGE_KEY)
   } catch {
-    // Storage can be off (private windows, blocked site data); the switch still works for this page.
+    storageFailed = true
   }
 }
 
