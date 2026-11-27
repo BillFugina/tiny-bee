@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router'
 import { useActiveMeetupTitle } from '../lib/activeMeetup'
 import { authClient } from '../lib/auth-client'
+import { showSetup } from '../lib/meetupView'
 import { useTRPC } from '../lib/trpc'
 import { FairAreas } from './meetup/FairAreas'
 import { InvitePanel } from './meetup/InvitePanel'
@@ -82,6 +83,7 @@ function MemberView({ meetupId }: { meetupId: string }) {
   const [inviteOpen, setInviteOpen] = useState(false)
   const [lookAround, setLookAround] = useState(false)
   const [plannerOpen, setPlannerOpen] = useState(false)
+  const [beganInSetup, setBeganInSetup] = useState(false)
 
   if (meetup.isPending) return <p className="muted">Loading…</p>
   if (!meetup.data) return <p className="error">{meetup.error?.message ?? 'Could not load this meetup.'}</p>
@@ -93,13 +95,23 @@ function MemberView({ meetupId }: { meetupId: string }) {
   const stage: Stage =
     phase === 'decided' ? 'decided' : phase === 'voting' ? 'voting' : ready < 2 ? 'gathering' : 'shortlisting'
 
+  // Remember that this visit began in the planner, so saving a start from the
+  // chat doesn't swap the page out from under the conversation.
+  if (phase === 'planning' && !meReady && !lookAround && !beganInSetup) setBeganInSetup(true)
+
   const planner = me ? <Planner meetupId={meetupId} me={me} /> : null
   let body
-  if (phase === 'planning' && !meReady && !lookAround) {
+  if (showSetup({ phase, meReady, lookAround, beganInSetup })) {
     body = (
       <div className="setup">
         {planner}
-        {ready >= 2 ? (
+        {meReady ? (
+          <p className="setup__skip">
+            <button type="button" className="button" onClick={() => setLookAround(true)}>
+              See the fairest towns
+            </button>
+          </p>
+        ) : ready >= 2 ? (
           <p className="setup__skip">
             <button type="button" className="link" onClick={() => setLookAround(true)}>
               Look at the fairest towns first
