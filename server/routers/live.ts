@@ -5,10 +5,12 @@ import { protectedProcedure, router } from '../trpc.js'
 export const liveRouter = router({
   /**
    * A subscribe-only token for one meetup the caller is in, or null when live
-   * updates are off. Members only: requireMember throws for anyone else.
+   * updates are off. Members only: requireMember throws for anyone else. The
+   * token names the member's user id as its Ably clientId, so channels that
+   * require identified clients accept it.
    */
   token: protectedProcedure.input(meetupIdInput).query(async ({ ctx, input }) => {
     await requireMember(ctx.db, input.meetupId, ctx.user.id)
-    return ctx.live ? ctx.live.subscribeToken(input.meetupId) : null
+    return ctx.live ? ctx.live.subscribeToken(input.meetupId, ctx.user.id) : null
   }),
 })
