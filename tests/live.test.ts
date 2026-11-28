@@ -6,7 +6,14 @@ import { inArray } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { createDb, type Db } from '../server/db/client.js'
 import { user } from '../server/db/schema.js'
-import { ablyLiveUpdates, afterResponse, meetupChannel, noLiveUpdates, type LiveUpdates } from '../server/live/live.js'
+import {
+  ablyLiveUpdates,
+  afterResponse,
+  meetupChannel,
+  noLiveUpdates,
+  SERVER_CLIENT_ID,
+  type LiveUpdates,
+} from '../server/live/live.js'
 import { createMcpServer } from '../server/mcp/server.js'
 import { createTownDirectory } from '../server/places/directory.js'
 import { appRouter } from '../server/routers/index.js'
@@ -35,8 +42,10 @@ describe('Ably adapter', () => {
     expect(call.init.method).toBe('POST')
     const headers = call.init.headers as Record<string, string>
     expect(headers.Authorization).toBe(`Basic ${Buffer.from(KEY).toString('base64')}`)
+    // Identified, so channels that require identified clients accept it (Ably error 40161).
+    expect(Buffer.from(headers['X-Ably-ClientId'] ?? '', 'base64').toString()).toBe(SERVER_CLIENT_ID)
     // No meetup data ever goes through Ably.
-    expect(JSON.parse(String(call.init.body))).toEqual({ name: 'changed' })
+    expect(JSON.parse(String(call.init.body))).toEqual({ name: 'changed', clientId: SERVER_CLIENT_ID })
   })
 
   it('never throws when publishing fails', async () => {
@@ -49,11 +58,11 @@ describe('Ably adapter', () => {
     error.mockRestore()
   })
 
-  it('asks for a subscribe-only token for just that meetup', async () => {
+  it('asks for a subscribe-only token for just that meetup, naming the member', async () => {
     const { impl, calls } = fakeFetch(() =>
       Response.json({ token: 'tok', expires: 1_900_000_000_000, keyName: 'appId.keyId' }),
     )
-    const token = await ablyLiveUpdates(KEY, impl).subscribeToken(MEETUP)
+    const token = await ablyLiveUpdates(KEY, impl).subscribeToken(MEETUP, 'user-1')
     expect(token).toEqual({
       host: 'main.realtime.ably.net',
       channel: meetupChannel(MEETUP),
@@ -65,6 +74,7 @@ describe('Ably adapter', () => {
     const body = JSON.parse(String(call.init.body))
     expect(body.keyName).toBe('appId.keyId')
     expect(body.ttl).toBe(60 * 60 * 1000)
+    expect(body.clientId).toBe('user-1')
     expect(JSON.parse(body.capability)).toEqual({ [`meetup:${MEETUP}`]: ['subscribe'] })
     // The secret half of the key never goes in a request body.
     expect(String(call.init.body)).not.toContain('not-a-real-secret')
@@ -73,26 +83,31 @@ describe('Ably adapter', () => {
   it('returns no token when Ably refuses', async () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => {})
     const { impl } = fakeFetch(() => new Response('bad key', { status: 401 }))
-    expect(await ablyLiveUpdates(KEY, impl).subscribeToken(MEETUP)).toBeNull()
+    expect(await ablyLiveUpdates(KEY, impl).subscribeToken(MEETUP, 'user-1')).toBeNull()
     error.mockRestore()
   })
 
   it('rejects a key without a secret, and does nothing when off', async () => {
     expect(() => ablyLiveUpdates('appId.keyId')).toThrow()
     await expect(noLiveUpdates.publishChange(MEETUP)).resolves.toBeUndefined()
-    expect(await noLiveUpdates.subscribeToken(MEETUP)).toBeNull()
+    expect(await noLiveUpdates.subscribeToken(MEETUP, 'user-1')).toBeNull()
   })
 })
 
 /** Records what would have gone to Ably. */
-function recordingLive(): LiveUpdates & { published: string[] } {
+function recordingLive(): LiveUpdates & { published: string[]; tokensFor: string[] } {
   const published: string[] = []
+  const tokensFor: string[] = []
   return {
     published,
+    tokensFor,
     publishChange: async (meetupId) => {
       published.push(meetupId)
     },
-    subscribeToken: async (meetupId) => ({ host: 'test', channel: meetupChannel(meetupId), token: 't', expires: 0 }),
+    subscribeToken: async (meetupId, clientId) => {
+      tokensFor.push(clientId)
+      return { host: 'test', channel: meetupChannel(meetupId), token: 't', expires: 0 }
+    },
   }
 }
 
@@ -146,6 +161,7 @@ describe.skipIf(!url)('live updates against Postgres', () => {
     expect(await createCaller({ db, user: ana, towns, live }).live.token({ meetupId })).toMatchObject({
       channel: `meetup:${meetupId}`,
     })
+    expect(live.tokensFor).toEqual([ana.id])
     await expect(createCaller({ db, user: stranger, towns, live }).live.token({ meetupId })).rejects.toMatchObject({
       code: 'FORBIDDEN',
     })
