@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import Anthropic from '@anthropic-ai/sdk'
 import { TRPCError } from '@trpc/server'
 import { and, asc, count, eq, isNotNull, sql } from 'drizzle-orm'
+import type { PlanStepTarget } from '../../shared/schemas.js'
 import type { Db } from '../db/client.js'
 import { checkinMessage, meetupMember } from '../db/schema.js'
 import { requireMember } from '../meetups/members.js'
@@ -38,14 +39,68 @@ export function fallbackSettings(model: string): Pick<ModelRequest, 'betas' | 'f
 /** The chat as the member sees it: their messages and the planner's replies. */
 export async function checkinHistory(db: Db, meetupId: string, userId: string, enabled: boolean) {
   await requireMember(db, meetupId, userId)
-  const messages = await db
-    .select({ id: checkinMessage.id, role: checkinMessage.role, text: checkinMessage.text })
+  const stored = await db
+    .select({
+      id: checkinMessage.id,
+      role: checkinMessage.role,
+      content: checkinMessage.content,
+      text: checkinMessage.text,
+    })
     .from(checkinMessage)
-    .where(
-      and(eq(checkinMessage.meetupId, meetupId), eq(checkinMessage.userId, userId), isNotNull(checkinMessage.text)),
-    )
+    .where(and(eq(checkinMessage.meetupId, meetupId), eq(checkinMessage.userId, userId)))
     .orderBy(asc(checkinMessage.id))
-  return { enabled, messages: messages.map((m) => ({ id: m.id, role: m.role, text: m.text ?? '' })) }
+  return { enabled, messages: visibleMessages(stored) }
+}
+
+interface Row {
+  id: number
+  role: 'user' | 'assistant'
+  content: unknown
+  text: string | null
+}
+
+export interface VisibleMessage {
+  id: number
+  role: 'user' | 'assistant'
+  text: string
+  /** A step button the planner offered with this reply. */
+  offer?: PlanStepTarget
+}
+
+/**
+ * The messages a member sees, in order. A step button the planner offered
+ * (offer_step_button, when the call didn't fail) goes on that turn's last reply.
+ */
+export function visibleMessages(stored: Row[]): VisibleMessage[] {
+  const out: VisibleMessage[] = []
+  let offers = new Map<string, PlanStepTarget>()
+  let lastReply: VisibleMessage | null = null
+  const settle = () => {
+    const offer = [...offers.values()].at(-1)
+    if (offer && lastReply) lastReply.offer = offer
+    offers = new Map()
+    lastReply = null
+  }
+  for (const row of stored) {
+    const blocks = Array.isArray(row.content) ? (row.content as Record<string, unknown>[]) : []
+    if (row.role === 'user' && row.text !== null) settle()
+    if (row.role === 'assistant') {
+      for (const b of blocks) {
+        const step = (b.input as { step?: unknown } | undefined)?.step
+        if (b.type === 'tool_use' && b.name === 'offer_step_button' && (step === 'invite' || step === 'towns')) {
+          offers.set(String(b.id), step)
+        }
+      }
+    } else {
+      for (const b of blocks) if (b.type === 'tool_result' && b.is_error) offers.delete(String(b.tool_use_id))
+    }
+    if (row.text === null) continue
+    const message: VisibleMessage = { id: row.id, role: row.role, text: row.text }
+    out.push(message)
+    if (row.role === 'assistant') lastReply = message
+  }
+  settle()
+  return out
 }
 
 interface StoredMessage {
@@ -185,9 +240,8 @@ export async function sendCheckin(
       .insert(checkinMessage)
       .values(turn.map((m) => ({ meetupId, userId, role: m.role, content: m.content, text: m.text })))
       .returning({ id: checkinMessage.id, role: checkinMessage.role, text: checkinMessage.text })
-    return {
-      messages: saved.flatMap((m) => (m.text === null ? [] : [{ id: m.id, role: m.role, text: m.text }])),
-    }
+    // Rows come back in the order they were inserted.
+    return { messages: visibleMessages(saved.map((m, i) => ({ ...m, content: turn[i]?.content ?? [] }))) }
   } finally {
     await lease.release()
   }

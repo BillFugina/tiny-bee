@@ -39,7 +39,7 @@ export function ConsentPage() {
 
   if (!isAgentSignIn(params)) {
     return (
-      <section>
+      <section className="auth">
         <h1>Nothing to approve</h1>
         <p className="muted">
           This page is where you approve an agent connecting to tiny-bee. <Link to="/">Back to your meetups</Link>
@@ -66,7 +66,7 @@ export function ConsentPage() {
   const name = client.data?.client_name?.trim() || 'An app'
 
   return (
-    <section>
+    <section className="auth">
       <h1>Connect an agent to tiny-bee?</h1>
       <div className="card">
         {client.isPending ? (

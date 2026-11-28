@@ -1,113 +1,54 @@
-import { useForm } from '@tanstack/react-form'
-import { useMutation, useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
-import { VOTING_MAX_DAYS } from '../../../shared/schemas'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
+import { ArrowDownIcon, ArrowUpIcon, GripVerticalIcon, InfoIcon, MapPinIcon, VoteIcon } from '../../components/icons'
 import { readBallotToken, saveBallotToken } from '../../lib/ballotToken'
 import { useTRPC } from '../../lib/trpc'
-import { FieldErrors } from './FieldErrors'
-import { Results } from './Results'
 import { useInvalidateMeetup } from './useInvalidateMeetup'
 
+const closesAt = new Intl.DateTimeFormat(undefined, {
+  weekday: 'long',
+  month: 'short',
+  day: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+})
+
+/** The voting screen: rank the shortlist and cast or change your ballot. */
 export function Vote({ meetupId, userId }: { meetupId: string; userId: string }) {
   const trpc = useTRPC()
   const status = useQuery(trpc.vote.status.queryOptions({ meetupId }))
+  const queryClient = useQueryClient()
+  const closed = !!status.data && status.data.phase !== 'voting'
+  useEffect(() => {
+    // A passed deadline closes the vote when status is read, without a live
+    // update; refresh the meetup so the page moves on to the results.
+    if (closed) void queryClient.invalidateQueries({ queryKey: trpc.meetups.pathKey() })
+  }, [closed, queryClient, trpc])
 
   if (!status.data) return status.error ? <p className="error">{status.error.message}</p> : null
   const s = status.data
-
-  if (s.phase === 'decided' && s.result) {
-    return <Results result={s.result} turnout={s.turnout} />
-  }
-
-  if (s.phase === 'planning') {
-    return (
-      <div className="card">
-        <h2>Vote</h2>
-        {s.canOpen ? (
-          <OpenVoting meetupId={meetupId} />
-        ) : s.isOrganizer ? (
-          <p className="muted">Shortlist at least two places, then open voting here.</p>
-        ) : (
-          <p className="muted">The organizer opens voting once the shortlist is ready.</p>
-        )}
-      </div>
-    )
-  }
+  if (s.phase !== 'voting') return null
 
   return (
-    <div className="card">
-      <h2>Vote</h2>
-      <p>
-        Rank the places you'd go to, best first. You can leave out any you wouldn't go to.
-        {s.deadline ? ` Voting closes ${s.deadline.toLocaleString()}.` : ' Voting closes when everyone has voted.'}
-      </p>
-      <p className="muted small">
-        {s.turnout.voted} of {s.turnout.members} have voted. Nobody sees how anyone voted, and there are no running
-        totals.
-      </p>
+    <section className="voting" aria-labelledby="voting-title">
+      <header className="voting__head">
+        <span className="voting__mark" aria-hidden="true">
+          <VoteIcon size={24} />
+        </span>
+        <p className="kicker">Your turn</p>
+        <h2 id="voting-title" className="view-title">
+          Where should we meet?
+        </h2>
+        <p className="view-lead">Put every place on the shortlist in order, best first.</p>
+      </header>
       <Ballot meetupId={meetupId} userId={userId} candidates={s.candidates} iVoted={s.iVoted} />
+      <p className="voting__turnout">
+        {s.turnout.voted} of {s.turnout.members} members have voted ·{' '}
+        {s.deadline ? `Voting closes ${closesAt.format(s.deadline)}` : 'Voting closes when everyone has voted'}
+      </p>
+      <p className="muted small voting__privacy">Nobody sees how anyone voted, and there are no running totals.</p>
       {s.canClose ? <CloseVoting meetupId={meetupId} /> : null}
-    </div>
-  )
-}
-
-function OpenVoting({ meetupId }: { meetupId: string }) {
-  const trpc = useTRPC()
-  const invalidate = useInvalidateMeetup()
-  const open = useMutation(trpc.vote.open.mutationOptions({ onSuccess: invalidate }))
-  const form = useForm({
-    defaultValues: { deadline: '' },
-    onSubmit: async ({ value }) => {
-      await open.mutateAsync({ meetupId, deadline: value.deadline ? new Date(value.deadline) : null })
-    },
-  })
-
-  return (
-    <form
-      className="inline-form"
-      onSubmit={(e) => {
-        e.preventDefault()
-        void form.handleSubmit()
-      }}
-    >
-      <p>Once voting opens, the shortlist can't change.</p>
-      <form.Field
-        name="deadline"
-        validators={{
-          onSubmit: ({ value }) => {
-            if (!value) return undefined
-            const when = new Date(value).getTime()
-            if (Number.isNaN(when) || when <= Date.now()) return 'Pick a time in the future'
-            if (when - Date.now() > VOTING_MAX_DAYS * 24 * 60 * 60 * 1000) {
-              return `Voting can stay open ${VOTING_MAX_DAYS} days at most`
-            }
-            return undefined
-          },
-        }}
-      >
-        {(field) => (
-          <label>
-            Close voting at (optional)
-            <input
-              type="datetime-local"
-              value={field.state.value}
-              onBlur={field.handleBlur}
-              onChange={(e) => field.handleChange(e.target.value)}
-            />
-            <span className="muted small">Leave it empty to close when everyone has voted.</span>
-            <FieldErrors errors={field.state.meta.errors} />
-          </label>
-        )}
-      </form.Field>
-      <form.Subscribe selector={(s) => s.isSubmitting}>
-        {(isSubmitting) => (
-          <button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Opening…' : 'Open voting'}
-          </button>
-        )}
-      </form.Subscribe>
-      {open.error ? <span className="error">{open.error.message}</span> : null}
-    </form>
+    </section>
   )
 }
 
@@ -121,9 +62,13 @@ function Ballot(props: { meetupId: string; userId: string; candidates: Candidate
   )
 
   if (props.iVoted && !token) {
-    return <p>Your vote is in. This browser can't change it, because the ballot was cast from another one.</p>
+    return (
+      <div className="card ballot">
+        <p>Your vote is in. This browser can't change it, because the ballot was cast from another one.</p>
+      </div>
+    )
   }
-  if (token && mine.isPending) return <p className="muted">Loading your ballot…</p>
+  if (token && mine.isPending) return <p className="muted ballot-loading">Loading your ballot…</p>
   return (
     <BallotForm
       key={token ?? 'new'}
@@ -147,9 +92,17 @@ function BallotForm(props: {
 }) {
   const trpc = useTRPC()
   const invalidate = useInvalidateMeetup()
-  const valid = new Set(props.candidates.map((c) => c.id))
-  const [ranking, setRanking] = useState(() => props.initial.filter((id) => valid.has(id)))
-  const [saved, setSaved] = useState(props.token !== null)
+  // Every place is on the ballot: what was cast comes first, in its order, and
+  // anything it left out (a ballot from before every place had to be ranked)
+  // follows in shortlist order.
+  const [start] = useState(() => {
+    const valid = new Set(props.candidates.map((c) => c.id))
+    const kept = props.initial.filter((id) => valid.has(id))
+    const rest = props.candidates.map((c) => c.id).filter((id) => !kept.includes(id))
+    return { ranking: [...kept, ...rest], complete: rest.length === 0 }
+  })
+  const [ranking, setRanking] = useState(start.ranking)
+  const [saved, setSaved] = useState(props.token !== null && start.complete)
   const cast = useMutation(
     trpc.vote.cast.mutationOptions({
       onSuccess: (result) => {
@@ -160,7 +113,6 @@ function BallotForm(props: {
     }),
   )
   const labels = new Map(props.candidates.map((c) => [c.id, c.label]))
-  const unranked = props.candidates.filter((c) => !ranking.includes(c.id))
 
   const update = (next: string[]) => {
     setRanking(next)
@@ -172,63 +124,111 @@ function BallotForm(props: {
     next.splice(index + by, 0, item!)
     update(next)
   }
+  // Drag to reorder with a mouse; the arrows stay for touch and keyboards.
+  const [dragging, setDragging] = useState<string | null>(null)
+  const [over, setOver] = useState<string | null>(null)
+  const drop = (targetId: string) => {
+    if (dragging && dragging !== targetId) {
+      const next = ranking.filter((r) => r !== dragging)
+      next.splice(ranking.indexOf(targetId), 0, dragging)
+      update(next)
+    }
+    setDragging(null)
+    setOver(null)
+  }
 
   return (
-    <div className="ballot">
-      {ranking.length ? (
-        <ol className="ranked">
-          {ranking.map((id, i) => (
-            <li key={id}>
-              <span>{labels.get(id)}</span>
-              <span className="row">
-                <button
-                  type="button"
-                  className="icon"
-                  aria-label="Move up"
-                  disabled={i === 0}
-                  onClick={() => move(i, -1)}
-                >
-                  ↑
-                </button>
-                <button
-                  type="button"
-                  className="icon"
-                  aria-label="Move down"
-                  disabled={i === ranking.length - 1}
-                  onClick={() => move(i, 1)}
-                >
-                  ↓
-                </button>
-                <button type="button" className="link" onClick={() => update(ranking.filter((r) => r !== id))}>
-                  Remove
-                </button>
-              </span>
-            </li>
-          ))}
-        </ol>
-      ) : (
-        <p className="muted">Pick your first choice below.</p>
-      )}
-      {unranked.length ? (
-        <div className="row wrap">
-          {unranked.map((c) => (
-            <button key={c.id} type="button" className="chip" onClick={() => update([...ranking, c.id])}>
-              + {c.label}
-            </button>
-          ))}
+    <div className="card ballot">
+      <div className="ballot__head">
+        <div>
+          <h3>Your ranking</h3>
+          <p className="muted small">Top choice gets the most weight.</p>
         </div>
-      ) : null}
-      <div className="row">
+        <span className="pill">
+          <GripVerticalIcon size={14} />
+          Drag or use the arrows
+        </span>
+      </div>
+      <ol className="ranked">
+        {ranking.map((id, i) => (
+          <li
+            key={id}
+            className={`ranked__row${dragging === id ? ' is-dragging' : ''}${over === id && dragging !== id ? ' is-over' : ''}`}
+            draggable
+            onDragStart={(e) => {
+              e.dataTransfer.effectAllowed = 'move'
+              e.dataTransfer.setData('text/plain', id)
+              setDragging(id)
+            }}
+            onDragOver={(e) => {
+              if (!dragging) return
+              e.preventDefault()
+              setOver(id)
+            }}
+            onDragLeave={() => setOver((o) => (o === id ? null : o))}
+            onDrop={(e) => {
+              e.preventDefault()
+              drop(id)
+            }}
+            onDragEnd={() => {
+              setDragging(null)
+              setOver(null)
+            }}
+          >
+            <span className="ranked__grip" aria-hidden="true">
+              <GripVerticalIcon size={18} />
+            </span>
+            <span className="ranked__num" aria-hidden="true">
+              {i + 1}
+            </span>
+            <span className="ranked__pin" aria-hidden="true">
+              <MapPinIcon size={16} />
+            </span>
+            <span className="ranked__name">{labels.get(id)}</span>
+            <span className="ranked__tools">
+              <button
+                type="button"
+                className="icon-button"
+                aria-label={`Move ${labels.get(id)} up`}
+                disabled={i === 0}
+                onClick={() => move(i, -1)}
+              >
+                <ArrowUpIcon size={16} />
+              </button>
+              <button
+                type="button"
+                className="icon-button"
+                aria-label={`Move ${labels.get(id)} down`}
+                disabled={i === ranking.length - 1}
+                onClick={() => move(i, 1)}
+              >
+                <ArrowDownIcon size={16} />
+              </button>
+            </span>
+          </li>
+        ))}
+      </ol>
+      <p className="info-box">
+        <InfoIcon size={18} />
+        If your top choice is knocked out in the count, your vote moves to your next choice.
+      </p>
+      <div className="ballot__foot">
+        <div>
+          <strong>{saved && props.token ? 'Your vote is in' : 'Ready to submit?'}</strong>
+          <p className="muted small">
+            {saved && props.token
+              ? 'You can change it until voting closes.'
+              : 'You can change your vote until voting closes.'}
+          </p>
+        </div>
         <button
           type="button"
+          className="button"
           disabled={ranking.length === 0 || cast.isPending || saved}
           onClick={() => cast.mutate({ meetupId: props.meetupId, ranking, token: props.token ?? undefined })}
         >
           {cast.isPending ? 'Saving…' : props.token ? 'Change my vote' : 'Cast my vote'}
         </button>
-        {saved && props.token ? (
-          <span className="muted small">Saved. You can change it until voting closes.</span>
-        ) : null}
       </div>
       {cast.error ? <span className="error">{cast.error.message}</span> : null}
     </div>

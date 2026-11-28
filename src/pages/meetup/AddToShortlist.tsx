@@ -3,6 +3,7 @@ import { useMutation } from '@tanstack/react-query'
 import { useState } from 'react'
 import { z } from 'zod'
 import { shortlistNoteField } from '../../../shared/schemas'
+import { PlusIcon } from '../../components/icons'
 import { useTRPC } from '../../lib/trpc'
 import { FieldErrors } from './FieldErrors'
 import { useInvalidateMeetup } from './useInvalidateMeetup'
@@ -25,7 +26,8 @@ export function AddToShortlist({ meetupId, townId }: { meetupId: string; townId:
 
   if (!open) {
     return (
-      <button type="button" className="link" onClick={() => setOpen(true)}>
+      <button type="button" className="button button--soft button--block" onClick={() => setOpen(true)}>
+        <PlusIcon size={16} />
         Add to shortlist
       </button>
     )

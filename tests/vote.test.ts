@@ -215,24 +215,36 @@ describe.skipIf(!url)('shortlist and vote against Postgres', () => {
 
   it('casts anonymous ballots, lets a voter change theirs, and decides when all have voted', async () => {
     const { meetupId, westford, midway, eastford } = await meetupWithShortlist()
-    await expect(as(ana).vote.cast({ meetupId, ranking: [midway] })).rejects.toMatchObject({
+    await expect(as(ana).vote.cast({ meetupId, ranking: [midway, westford, eastford] })).rejects.toMatchObject({
       message: 'Voting has not opened yet.',
     })
     await as(organizer).vote.open({ meetupId, deadline: null })
 
-    await expect(as(stranger).vote.cast({ meetupId, ranking: [midway] })).rejects.toMatchObject({ code: 'FORBIDDEN' })
+    await expect(as(stranger).vote.cast({ meetupId, ranking: [midway, westford, eastford] })).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    })
     await expect(as(ana).vote.cast({ meetupId, ranking: [randomUUID()] })).rejects.toMatchObject({
       message: 'Rank only places on the shortlist.',
     })
 
-    const anaVote = await as(ana).vote.cast({ meetupId, ranking: [westford, midway] })
+    await expect(as(ana).vote.cast({ meetupId, ranking: [westford, midway] })).rejects.toMatchObject({
+      message: 'Rank every place on the shortlist.',
+    })
+
+    const anaVote = await as(ana).vote.cast({ meetupId, ranking: [westford, midway, eastford] })
     expect(anaVote.token).toMatch(/^[A-Za-z0-9_-]{32}$/)
-    await expect(as(ana).vote.cast({ meetupId, ranking: [eastford] })).rejects.toMatchObject({ code: 'CONFLICT' })
+    await expect(as(ana).vote.cast({ meetupId, ranking: [eastford, midway, westford] })).rejects.toMatchObject({
+      code: 'CONFLICT',
+    })
 
     // Ana changes her mind with her token; still one ballot, one receipt.
-    await as(ana).vote.cast({ meetupId, ranking: [midway, westford], token: anaVote.token })
-    expect(await as(ana).vote.mine({ meetupId, token: anaVote.token })).toEqual({ ranking: [midway, westford] })
-    await expect(as(ben).vote.cast({ meetupId, ranking: [eastford], token: 'x'.repeat(32) })).rejects.toMatchObject({
+    await as(ana).vote.cast({ meetupId, ranking: [midway, westford, eastford], token: anaVote.token })
+    expect(await as(ana).vote.mine({ meetupId, token: anaVote.token })).toEqual({
+      ranking: [midway, westford, eastford],
+    })
+    await expect(
+      as(ben).vote.cast({ meetupId, ranking: [eastford, midway, westford], token: 'x'.repeat(32) }),
+    ).rejects.toMatchObject({
       message: 'That ballot token does not match a ballot here.',
     })
 
@@ -246,9 +258,9 @@ describe.skipIf(!url)('shortlist and vote against Postgres', () => {
     expect(Object.keys(stored[0]!).sort()).toEqual(['id', 'meetupId', 'ranking', 'tokenHash'])
     expect(stored[0]!.tokenHash).not.toBe(anaVote.token)
 
-    await as(ben).vote.cast({ meetupId, ranking: [eastford, midway] })
+    await as(ben).vote.cast({ meetupId, ranking: [eastford, midway, westford] })
     // The last ballot closes the vote.
-    await as(organizer).vote.cast({ meetupId, ranking: [westford, eastford] })
+    await as(organizer).vote.cast({ meetupId, ranking: [westford, eastford, midway] })
 
     const decided = await as(ben).vote.status({ meetupId })
     expect(decided.phase).toBe('decided')
@@ -257,7 +269,9 @@ describe.skipIf(!url)('shortlist and vote against Postgres', () => {
     expect(decided.result?.winner?.label).toBe('Midway, NC')
     expect(decided.result!.rounds.length).toBeGreaterThan(0)
 
-    await expect(as(ana).vote.cast({ meetupId, ranking: [eastford], token: anaVote.token })).rejects.toMatchObject({
+    await expect(
+      as(ana).vote.cast({ meetupId, ranking: [eastford, midway, westford], token: anaVote.token }),
+    ).rejects.toMatchObject({
       message: 'Voting has closed.',
     })
     const receipts = await db.select().from(ballotReceipt).where(eq(ballotReceipt.meetupId, meetupId))
@@ -267,9 +281,9 @@ describe.skipIf(!url)('shortlist and vote against Postgres', () => {
   it('counts the vote correctly round by round', async () => {
     const { meetupId, westford, midway, eastford } = await meetupWithShortlist()
     await as(organizer).vote.open({ meetupId, deadline: null })
-    await as(organizer).vote.cast({ meetupId, ranking: [westford, midway] })
-    await as(ana).vote.cast({ meetupId, ranking: [midway] })
-    await as(ben).vote.cast({ meetupId, ranking: [eastford, midway] })
+    await as(organizer).vote.cast({ meetupId, ranking: [westford, midway, eastford] })
+    await as(ana).vote.cast({ meetupId, ranking: [midway, westford, eastford] })
+    await as(ben).vote.cast({ meetupId, ranking: [eastford, midway, westford] })
 
     const { result } = await as(ana).vote.status({ meetupId })
     // Round 1 is a three-way tie at one each; Eastford, added last, goes first.
@@ -286,7 +300,7 @@ describe.skipIf(!url)('shortlist and vote against Postgres', () => {
   it('lets the organizer close early, and closes by itself after the deadline', async () => {
     const first = await meetupWithShortlist()
     await as(organizer).vote.open({ meetupId: first.meetupId, deadline: null })
-    await as(ana).vote.cast({ meetupId: first.meetupId, ranking: [first.midway] })
+    await as(ana).vote.cast({ meetupId: first.meetupId, ranking: [first.midway, first.westford, first.eastford] })
     await expect(as(ana).vote.close({ meetupId: first.meetupId })).rejects.toMatchObject({ code: 'FORBIDDEN' })
     await as(organizer).vote.close({ meetupId: first.meetupId })
     const closed = await as(ben).vote.status({ meetupId: first.meetupId })
@@ -298,13 +312,15 @@ describe.skipIf(!url)('shortlist and vote against Postgres', () => {
 
     const second = await meetupWithShortlist()
     await as(organizer).vote.open({ meetupId: second.meetupId, deadline: new Date(Date.now() + 60_000) })
-    await as(ana).vote.cast({ meetupId: second.meetupId, ranking: [second.eastford] })
+    await as(ana).vote.cast({ meetupId: second.meetupId, ranking: [second.eastford, second.midway, second.westford] })
     // Move the deadline into the past, as if time had passed.
     await db
       .update(meetup)
       .set({ votingDeadline: new Date(Date.now() - 1000) })
       .where(eq(meetup.id, second.meetupId))
-    await expect(as(ben).vote.cast({ meetupId: second.meetupId, ranking: [second.midway] })).rejects.toMatchObject({
+    await expect(
+      as(ben).vote.cast({ meetupId: second.meetupId, ranking: [second.midway, second.westford, second.eastford] }),
+    ).rejects.toMatchObject({
       message: 'Voting has closed.',
     })
     const late = await as(ben).vote.status({ meetupId: second.meetupId })

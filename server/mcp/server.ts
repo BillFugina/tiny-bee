@@ -37,8 +37,12 @@ const meetupId = z.uuid().describe('From list_my_meetups')
 const readOnly: ToolAnnotations = { readOnlyHint: true, openWorldHint: false }
 const writes: ToolAnnotations = { readOnlyHint: false, destructiveHint: false, openWorldHint: false }
 
+/** Planner tools that only make sense inside the app's own chat. */
+const APP_ONLY = ['offer_step_button'] as const
+type SharedToolName = Exclude<PlannerToolName, (typeof APP_ONLY)[number]>
+
 /** The planner's tools, each taking a meetupId, plus a few that span meetups. */
-const plannerToolAnnotations: Record<PlannerToolName, ToolAnnotations> = {
+const plannerToolAnnotations: Record<SharedToolName, ToolAnnotations> = {
   get_meetup: readOnly,
   get_invite_link: readOnly,
   search_towns: readOnly,
@@ -52,7 +56,7 @@ const plannerToolAnnotations: Record<PlannerToolName, ToolAnnotations> = {
 }
 
 /** Meetup-independent tools don't need a meetupId. */
-const NO_MEETUP: ReadonlySet<PlannerToolName> = new Set(['search_towns'])
+const NO_MEETUP: ReadonlySet<SharedToolName> = new Set(['search_towns'])
 
 function result(value: unknown): CallToolResult {
   return {
@@ -149,7 +153,11 @@ export function createMcpServer(ctx: McpContext): McpServer {
       }),
   )
 
-  for (const [name, t] of Object.entries(plannerTools) as [PlannerToolName, (typeof plannerTools)[PlannerToolName]][]) {
+  const shared = Object.entries(plannerTools).filter(([name]) => !(APP_ONLY as readonly string[]).includes(name)) as [
+    SharedToolName,
+    (typeof plannerTools)[SharedToolName],
+  ][]
+  for (const [name, t] of shared) {
     const base = t.input as unknown as z.ZodObject
     const needsMeetup = !NO_MEETUP.has(name)
     const inputSchema = needsMeetup ? base.extend({ meetupId }) : base
@@ -172,10 +180,12 @@ export function createMcpServer(ctx: McpContext): McpServer {
     'cast_ballot',
     {
       description:
-        "Cast or change this member's ballot, ranking shortlist places best first (itemIds from get_shortlist). Only after the member has seen the exact ranking and said yes: ballots are secret and count toward the group's pick. Returns a ballotToken; pass it back to change the ballot later.",
+        "Cast or change this member's ballot, ranking every shortlist place best first (itemIds from get_shortlist). Only after the member has seen the exact ranking and said yes: ballots are secret and count toward the group's pick. Returns a ballotToken; pass it back to change the ballot later.",
       inputSchema: z.strictObject({
         meetupId,
-        ranking: castBallotInput.shape.ranking.describe('Shortlist itemIds, best first. Ranking only some is fine.'),
+        ranking: castBallotInput.shape.ranking.describe(
+          'Every shortlist itemId, best first. A ballot must rank them all.',
+        ),
         ballotToken: castBallotInput.shape.token.describe('From an earlier cast_ballot, to change that ballot'),
         memberConfirmed: z.literal(true).describe('true only when the member has approved this exact ranking'),
       }),

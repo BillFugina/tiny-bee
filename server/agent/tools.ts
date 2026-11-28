@@ -2,7 +2,7 @@ import type Anthropic from '@anthropic-ai/sdk'
 import { TRPCError } from '@trpc/server'
 import { and, asc, count, eq } from 'drizzle-orm'
 import { z } from 'zod'
-import { DRIVE_LIMIT, shortlistNoteField } from '../../shared/schemas.js'
+import { DRIVE_LIMIT, PLAN_STEP_TARGETS, shortlistNoteField } from '../../shared/schemas.js'
 import type { Db } from '../db/client.js'
 import { memberConstraint } from '../db/schema.js'
 import { fairAreas, getMeetup, setMyStart } from '../meetups/meetups.js'
@@ -238,6 +238,35 @@ export const plannerTools = {
         candidates: status.candidates.map((c) => c.label),
         result: status.result,
       }
+    },
+  }),
+
+  offer_step_button: tool({
+    description:
+      "Shows a button under your reply that takes the member to a step of the meetup page. 'invite' is the organizer's step for inviting the group. 'towns' is the fairest towns and the shortlist, which opens once at least two members have a starting town. Use it when you suggest that step as what to do next, like when their check-in is done.",
+    input: z.strictObject({ step: z.enum(PLAN_STEP_TARGETS).describe('The step the button opens') }),
+    async run(ctx, { step }) {
+      const meetup = await getMeetup(ctx.db, ctx.meetupId, ctx.userId)
+      if (meetup.phase !== 'planning') {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'The group is past planning, so there are no steps to open.',
+        })
+      }
+      const me = meetup.members.find((m) => m.isMe)
+      if (step === 'invite' && me?.role !== 'organizer') {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Only the organizer has the invite step. Give this member the link from get_invite_link instead.',
+        })
+      }
+      if (step === 'towns' && meetup.members.filter((m) => m.start && m.maxMinutes).length < 2) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'The fairest towns open once at least two members have a starting town. Nothing to show yet.',
+        })
+      }
+      return { shown: true, step }
     },
   }),
 }

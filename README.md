@@ -21,13 +21,20 @@ works today and what's planned.
   blends in the group's average drive, and every member's time shown.
 - **Shortlist:** members add towns from the ranked list, with notes.
 - **Vote:** anonymous ranked-choice (instant-runoff) with an optional deadline.
-  Members see turnout, not choices, and everyone sees the result when it closes.
+  Every member ranks the whole shortlist, by dragging or with arrows. Members
+  see turnout, not choices, and everyone sees the result when it closes.
 - **Bring your own agent:** an MCP server with OAuth, so a member's own agent
   (Claude, Codex or any MCP client) can join, check in, add to the shortlist and
   vote once the member confirms. See [Connecting your own agent](#connecting-your-own-agent).
 - **Live updates:** open meetup pages refresh when anyone makes a change.
 - **Readable by agents:** the home page and /agents are served as plain HTML,
   with `robots.txt` and `llms.txt`.
+- **A screen for each step:** the meetup page follows the group from the
+  private planner, to the fairest towns and shortlist, to the ranked vote and
+  the result, with the invite link and members a tap away in the header band.
+- **Light and dark themes:** a warm honey look, in light and dark versions. The
+  app follows the device's setting until a member picks one with the switch in
+  the header, and remembers that choice on the device.
 
 ### Planned
 
@@ -69,6 +76,16 @@ Wish list:
   members' check-ins.
 - **Repeat a meetup:** start the next one with the same group and settings in one
   tap.
+
+From the design mockups, not built yet:
+
+- **Notifications:** an in-app list of what changed in your meetups.
+- **Meetup details:** a purpose, a date and a countdown to the day.
+- **Share shortlist:** send the current shortlist to the group from the towns
+  screen.
+- **Sort and town menus:** sort the fairest towns and act on a town from its
+  card.
+- **Profile menu:** a menu under the profile button in the header.
 
 ## How it works
 

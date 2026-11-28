@@ -89,6 +89,10 @@ export async function castBallot(
   if (input.ranking.some((id) => !items.has(id))) {
     throw new TRPCError({ code: 'BAD_REQUEST', message: 'Rank only places on the shortlist.' })
   }
+  // The schema rules out repeats, so the same count means every place is ranked.
+  if (input.ranking.length !== items.size) {
+    throw new TRPCError({ code: 'BAD_REQUEST', message: 'Rank every place on the shortlist.' })
+  }
   const ranking = JSON.stringify(input.ranking)
 
   if (input.token) {

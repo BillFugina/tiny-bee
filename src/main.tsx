@@ -12,6 +12,7 @@ import { Layout } from './pages/Layout'
 import { HomePage } from './pages/HomePage'
 import { MeetupPage } from './pages/MeetupPage'
 import { SignInPage } from './pages/SignInPage'
+import '@fontsource-variable/inter'
 import './styles.css'
 
 const router = createBrowserRouter([
