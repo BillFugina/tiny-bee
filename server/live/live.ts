@@ -9,8 +9,11 @@
 export interface LiveUpdates {
   /** Tell everyone watching this meetup to refresh. Never throws. */
   publishChange(meetupId: string): Promise<void>
-  /** A short-lived token that can only listen to this one meetup's channel. */
-  subscribeToken(meetupId: string): Promise<LiveToken | null>
+  /**
+   * A short-lived token that can only listen to this one meetup's channel.
+   * `clientId` identifies the listener to Ably; it never reaches other members.
+   */
+  subscribeToken(meetupId: string, clientId: string): Promise<LiveToken | null>
 }
 
 export interface LiveToken {
@@ -36,6 +39,11 @@ export const noLiveUpdates: LiveUpdates = {
 const ABLY_HOST = 'main.realtime.ably.net'
 const TOKEN_TTL_MS = 60 * 60 * 1000
 const PUBLISH_TIMEOUT_MS = 3000
+/**
+ * Who the server publishes as. Ably refuses unidentified clients on channels
+ * whose rules require it (error 40161), so every publish names this client.
+ */
+export const SERVER_CLIENT_ID = 'tiny-bee-server'
 
 /**
  * Ably over its REST API with plain fetch (no SDK). The key stays on the
@@ -47,6 +55,8 @@ export function ablyLiveUpdates(apiKey: string, fetchImpl: typeof fetch = fetch)
   const keyName = apiKey.slice(0, colon)
   const authorization = `Basic ${Buffer.from(apiKey).toString('base64')}`
   const headers = { Authorization: authorization, 'Content-Type': 'application/json' }
+  // Basic auth claims a clientId with this header (Base64, per Ably's REST spec).
+  const publishHeaders = { ...headers, 'X-Ably-ClientId': Buffer.from(SERVER_CLIENT_ID).toString('base64') }
 
   return {
     async publishChange(meetupId) {
@@ -54,8 +64,8 @@ export function ablyLiveUpdates(apiKey: string, fetchImpl: typeof fetch = fetch)
       try {
         const response = await fetchImpl(`https://${ABLY_HOST}/channels/${channel}/messages`, {
           method: 'POST',
-          headers,
-          body: JSON.stringify({ name: 'changed' }),
+          headers: publishHeaders,
+          body: JSON.stringify({ name: 'changed', clientId: SERVER_CLIENT_ID }),
           signal: AbortSignal.timeout(PUBLISH_TIMEOUT_MS),
         })
         if (!response.ok) console.error(`[live] publish failed: HTTP ${response.status} ${await safeText(response)}`)
@@ -65,7 +75,7 @@ export function ablyLiveUpdates(apiKey: string, fetchImpl: typeof fetch = fetch)
       }
     },
 
-    async subscribeToken(meetupId) {
+    async subscribeToken(meetupId, clientId) {
       const channel = meetupChannel(meetupId)
       const response = await fetchImpl(`https://${ABLY_HOST}/keys/${encodeURIComponent(keyName)}/requestToken`, {
         method: 'POST',
@@ -74,6 +84,7 @@ export function ablyLiveUpdates(apiKey: string, fetchImpl: typeof fetch = fetch)
           keyName,
           timestamp: Date.now(),
           ttl: TOKEN_TTL_MS,
+          clientId,
           capability: JSON.stringify({ [channel]: ['subscribe'] }),
         }),
         signal: AbortSignal.timeout(PUBLISH_TIMEOUT_MS),
