@@ -2,8 +2,8 @@ import { useForm } from '@tanstack/react-form'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef } from 'react'
 import { z } from 'zod'
-import { CHECKIN_TEXT_MAX, checkinSendInput } from '../../../shared/schemas'
-import { ArrowUpIcon } from '../../components/icons'
+import { CHECKIN_TEXT_MAX, checkinSendInput, type PlanStepTarget } from '../../../shared/schemas'
+import { ArrowRightIcon, ArrowUpIcon } from '../../components/icons'
 import { useTRPC } from '../../lib/trpc'
 import { FieldErrors } from './FieldErrors'
 import { useInvalidateMeetup } from './useInvalidateMeetup'
@@ -11,7 +11,7 @@ import { useInvalidateMeetup } from './useInvalidateMeetup'
 const messageForm = z.object({ text: checkinSendInput.shape.text })
 
 /** The member's private chat with the planner agent. */
-export function CheckIn({ meetupId }: { meetupId: string }) {
+export function CheckIn({ meetupId, onOffer }: { meetupId: string; onOffer: (step: PlanStepTarget) => void }) {
   const trpc = useTRPC()
   const queryClient = useQueryClient()
   const invalidateMeetup = useInvalidateMeetup()
@@ -50,6 +50,12 @@ export function CheckIn({ meetupId }: { meetupId: string }) {
     if (count > 0 || send.isPending) end.current?.scrollIntoView({ block: 'nearest' })
   }, [count, send.isPending])
 
+  // Put the cursor in the message box when the chat first appears.
+  const enabled = history.data?.enabled === true
+  useEffect(() => {
+    if (enabled) input.current?.focus({ preventScroll: true })
+  }, [enabled])
+
   if (history.isPending) return null
   if (!history.data) return <p className="error">{history.error?.message ?? 'Could not load your check-in.'}</p>
 
@@ -63,8 +69,14 @@ export function CheckIn({ meetupId }: { meetupId: string }) {
   }
 
   const { messages } = history.data
+  const last = messages.at(-1)
+  const offer = !send.isPending && last?.role === 'assistant' ? last.offer : undefined
   return (
     <div className="planner-chat">
+      <p className="planner-chat__title">
+        <span className="planner__dot" aria-hidden="true" />
+        Chat with your planner
+      </p>
       <ul className="chat" aria-live="polite" aria-label="Your chat with the planner">
         {messages.length === 0 && !send.isPending ? (
           <li className="bubble planner">
@@ -82,6 +94,14 @@ export function CheckIn({ meetupId }: { meetupId: string }) {
             <li className="bubble me">{send.variables.text}</li>
             <li className="bubble planner muted">Thinking…</li>
           </>
+        ) : null}
+        {offer ? (
+          <li className="chat-offer">
+            <button type="button" className="button" onClick={() => onOffer(offer)}>
+              {offer === 'invite' ? 'Go to invitations' : 'See the fairest towns'}
+              <ArrowRightIcon size={16} />
+            </button>
+          </li>
         ) : null}
         <li ref={end} className="chat-end" aria-hidden="true" />
       </ul>

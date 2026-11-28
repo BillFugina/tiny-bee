@@ -28,6 +28,8 @@ export function StatusBand(props: {
   memberCount: number
   inviteOpen: boolean
   onToggleInvite: () => void
+  /** Set while there's an earlier step to go back to; otherwise back goes to the meetups list. */
+  back?: { label: string; onBack: () => void }
 }) {
   const trpc = useTRPC()
   const vote = useQuery(trpc.vote.status.queryOptions({ meetupId: props.meetupId }))
@@ -37,9 +39,21 @@ export function StatusBand(props: {
     <header className="status-band">
       <div className="status-band__inner">
         <div className="status-band__title">
-          <Link to="/" className="round-button" aria-label="Back to your meetups">
-            <ChevronLeftIcon size={20} />
-          </Link>
+          {props.back ? (
+            <button
+              type="button"
+              className="round-button"
+              aria-label={`Back to ${props.back.label}`}
+              title={`Back to ${props.back.label}`}
+              onClick={props.back.onBack}
+            >
+              <ChevronLeftIcon size={20} />
+            </button>
+          ) : (
+            <Link to="/" className="round-button" aria-label="Back to your meetups" title="Back to your meetups">
+              <ChevronLeftIcon size={20} />
+            </Link>
+          )}
           <div className="status-band__text">
             <h1>{props.title}</h1>
             <p className="status-band__meta">

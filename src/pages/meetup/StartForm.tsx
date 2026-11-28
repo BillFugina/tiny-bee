@@ -18,6 +18,7 @@ export function StartForm(props: {
   const queryClient = useQueryClient()
   const [townText, setTownText] = useState(props.start?.label ?? '')
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [editing, setEditing] = useState(false)
   const query = useDebounced(townText.trim(), 250)
   const suggestions = useQuery(
     trpc.places.search.queryOptions({ q: query }, { enabled: showSuggestions && query.length >= 2 }),
@@ -36,9 +37,26 @@ export function StartForm(props: {
     },
   })
 
+  if (props.start && props.maxMinutes && !editing) {
+    return (
+      <div className="start-summary">
+        <span className="start-summary__icon" aria-hidden="true">
+          <MapPinIcon size={16} />
+        </span>
+        <span className="start-summary__text">
+          From <strong>{props.start.label}</strong>, driving up to <strong>{formatMinutes(props.maxMinutes)}</strong>
+        </span>
+        <button type="button" className="link" onClick={() => setEditing(true)}>
+          Change
+        </button>
+      </div>
+    )
+  }
+
   return (
     <form
       className="start-form"
+      aria-label="Your starting point"
       onSubmit={(e) => {
         e.preventDefault()
         void form.handleSubmit()
@@ -48,7 +66,7 @@ export function StartForm(props: {
         {(field) => (
           <div className="autocomplete">
             <label className="field-label" htmlFor="start-town">
-              Your starting point
+              {props.start ? 'Your starting point' : 'Or set your starting point here'}
             </label>
             <div className="search-field">
               <MapPinIcon size={18} />
@@ -99,7 +117,7 @@ export function StartForm(props: {
           <div className="drive-field">
             <div className="drive-field__head">
               <label className="field-label" htmlFor="start-drive">
-                Longest drive you'd make
+                Longest drive
               </label>
               <output className="pill-output" htmlFor="start-drive">
                 {Number.isFinite(field.state.value) ? formatMinutes(field.state.value) : '–'}
@@ -115,15 +133,11 @@ export function StartForm(props: {
               onBlur={field.handleBlur}
               onChange={(e) => field.handleChange(e.target.valueAsNumber)}
             />
-            <span className="scale muted small">
-              <span>{formatMinutes(DRIVE_LIMIT.min)}</span>
-              <span>{formatMinutes(DRIVE_LIMIT.max)}</span>
-            </span>
             <FieldErrors errors={field.state.meta.errors} />
           </div>
         )}
       </form.Field>
-      <div className="row">
+      <div className="start-form__actions">
         <form.Subscribe selector={(s) => s.isSubmitting}>
           {(isSubmitting) => (
             <button type="submit" disabled={isSubmitting}>
@@ -131,7 +145,11 @@ export function StartForm(props: {
             </button>
           )}
         </form.Subscribe>
-        {save.isSuccess && !save.isPending ? <span className="muted small">Saved.</span> : null}
+        {editing ? (
+          <button type="button" className="link" onClick={() => setEditing(false)}>
+            Cancel
+          </button>
+        ) : null}
         {save.error ? <span className="error">{save.error.message}</span> : null}
       </div>
     </form>

@@ -1,6 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
-import { ArrowDownIcon, ArrowUpIcon, InfoIcon, MapPinIcon, PlusIcon, VoteIcon, XIcon } from '../../components/icons'
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  GripVerticalIcon,
+  InfoIcon,
+  MapPinIcon,
+  PlusIcon,
+  VoteIcon,
+  XIcon,
+} from '../../components/icons'
 import { readBallotToken, saveBallotToken } from '../../lib/ballotToken'
 import { useTRPC } from '../../lib/trpc'
 import { useInvalidateMeetup } from './useInvalidateMeetup'
@@ -117,6 +126,18 @@ function BallotForm(props: {
     next.splice(index + by, 0, item!)
     update(next)
   }
+  // Drag to reorder with a mouse; the arrows stay for touch and keyboards.
+  const [dragging, setDragging] = useState<string | null>(null)
+  const [over, setOver] = useState<string | null>(null)
+  const drop = (targetId: string) => {
+    if (dragging && dragging !== targetId) {
+      const next = ranking.filter((r) => r !== dragging)
+      next.splice(ranking.indexOf(targetId), 0, dragging)
+      update(next)
+    }
+    setDragging(null)
+    setOver(null)
+  }
 
   return (
     <div className="card ballot">
@@ -125,12 +146,41 @@ function BallotForm(props: {
           <h3>Your ranking</h3>
           <p className="muted small">Top choice gets the most weight.</p>
         </div>
-        <span className="pill">Use the arrows to reorder</span>
+        <span className="pill">
+          <GripVerticalIcon size={14} />
+          Drag or use the arrows
+        </span>
       </div>
       {ranking.length ? (
         <ol className="ranked">
           {ranking.map((id, i) => (
-            <li key={id} className="ranked__row">
+            <li
+              key={id}
+              className={`ranked__row${dragging === id ? ' is-dragging' : ''}${over === id && dragging !== id ? ' is-over' : ''}`}
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.effectAllowed = 'move'
+                e.dataTransfer.setData('text/plain', id)
+                setDragging(id)
+              }}
+              onDragOver={(e) => {
+                if (!dragging) return
+                e.preventDefault()
+                setOver(id)
+              }}
+              onDragLeave={() => setOver((o) => (o === id ? null : o))}
+              onDrop={(e) => {
+                e.preventDefault()
+                drop(id)
+              }}
+              onDragEnd={() => {
+                setDragging(null)
+                setOver(null)
+              }}
+            >
+              <span className="ranked__grip" aria-hidden="true">
+                <GripVerticalIcon size={18} />
+              </span>
               <span className="ranked__num" aria-hidden="true">
                 {i + 1}
               </span>

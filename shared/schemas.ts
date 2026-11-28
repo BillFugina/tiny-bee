@@ -13,6 +13,10 @@ export const meetupIdInput = z.object({ meetupId: z.uuid() })
 /** How long a drive a member can set, in minutes. */
 export const DRIVE_LIMIT = { min: 15, max: 600 } as const
 
+/** Steps of the meetup page that the planner can offer a button for. */
+export const PLAN_STEP_TARGETS = ['invite', 'towns'] as const
+export type PlanStepTarget = (typeof PLAN_STEP_TARGETS)[number]
+
 export const startFields = z.object({
   townId: z.number().int().positive('Pick a town from the list'),
   maxMinutes: z
