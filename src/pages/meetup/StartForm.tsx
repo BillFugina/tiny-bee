@@ -34,8 +34,16 @@ export function StartForm(props: {
     validators: { onSubmit: startFields },
     onSubmit: async ({ value }) => {
       await save.mutateAsync({ meetupId: props.meetupId, ...value })
+      setEditing(false)
     },
   })
+
+  // Back to what's saved, which the planner chat may have changed since this form mounted.
+  const restore = () => {
+    setTownText(props.start?.label ?? '')
+    setShowSuggestions(false)
+    form.reset({ townId: props.start?.townId ?? 0, maxMinutes: props.maxMinutes ?? 60 })
+  }
 
   if (props.start && props.maxMinutes && !editing) {
     return (
@@ -46,7 +54,14 @@ export function StartForm(props: {
         <span className="start-summary__text">
           From <strong>{props.start.label}</strong>, driving up to <strong>{formatMinutes(props.maxMinutes)}</strong>
         </span>
-        <button type="button" className="link" onClick={() => setEditing(true)}>
+        <button
+          type="button"
+          className="link"
+          onClick={() => {
+            restore()
+            setEditing(true)
+          }}
+        >
           Change
         </button>
       </div>
@@ -146,7 +161,14 @@ export function StartForm(props: {
           )}
         </form.Subscribe>
         {editing ? (
-          <button type="button" className="link" onClick={() => setEditing(false)}>
+          <button
+            type="button"
+            className="link"
+            onClick={() => {
+              restore()
+              setEditing(false)
+            }}
+          >
             Cancel
           </button>
         ) : null}
