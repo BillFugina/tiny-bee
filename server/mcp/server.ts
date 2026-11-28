@@ -180,10 +180,12 @@ export function createMcpServer(ctx: McpContext): McpServer {
     'cast_ballot',
     {
       description:
-        "Cast or change this member's ballot, ranking shortlist places best first (itemIds from get_shortlist). Only after the member has seen the exact ranking and said yes: ballots are secret and count toward the group's pick. Returns a ballotToken; pass it back to change the ballot later.",
+        "Cast or change this member's ballot, ranking every shortlist place best first (itemIds from get_shortlist). Only after the member has seen the exact ranking and said yes: ballots are secret and count toward the group's pick. Returns a ballotToken; pass it back to change the ballot later.",
       inputSchema: z.strictObject({
         meetupId,
-        ranking: castBallotInput.shape.ranking.describe('Shortlist itemIds, best first. Ranking only some is fine.'),
+        ranking: castBallotInput.shape.ranking.describe(
+          'Every shortlist itemId, best first. A ballot must rank them all.',
+        ),
         ballotToken: castBallotInput.shape.token.describe('From an earlier cast_ballot, to change that ballot'),
         memberConfirmed: z.literal(true).describe('true only when the member has approved this exact ranking'),
       }),

@@ -1,15 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
-import {
-  ArrowDownIcon,
-  ArrowUpIcon,
-  GripVerticalIcon,
-  InfoIcon,
-  MapPinIcon,
-  PlusIcon,
-  VoteIcon,
-  XIcon,
-} from '../../components/icons'
+import { ArrowDownIcon, ArrowUpIcon, GripVerticalIcon, InfoIcon, MapPinIcon, VoteIcon } from '../../components/icons'
 import { readBallotToken, saveBallotToken } from '../../lib/ballotToken'
 import { useTRPC } from '../../lib/trpc'
 import { useInvalidateMeetup } from './useInvalidateMeetup'
@@ -48,7 +39,7 @@ export function Vote({ meetupId, userId }: { meetupId: string; userId: string })
         <h2 id="voting-title" className="view-title">
           Where should we meet?
         </h2>
-        <p className="view-lead">Rank the places you'd go to, best first. You can leave out any you wouldn't go to.</p>
+        <p className="view-lead">Put every place on the shortlist in order, best first.</p>
       </header>
       <Ballot meetupId={meetupId} userId={userId} candidates={s.candidates} iVoted={s.iVoted} />
       <p className="voting__turnout">
@@ -101,9 +92,17 @@ function BallotForm(props: {
 }) {
   const trpc = useTRPC()
   const invalidate = useInvalidateMeetup()
-  const valid = new Set(props.candidates.map((c) => c.id))
-  const [ranking, setRanking] = useState(() => props.initial.filter((id) => valid.has(id)))
-  const [saved, setSaved] = useState(props.token !== null)
+  // Every place is on the ballot: what was cast comes first, in its order, and
+  // anything it left out (a ballot from before every place had to be ranked)
+  // follows in shortlist order.
+  const [start] = useState(() => {
+    const valid = new Set(props.candidates.map((c) => c.id))
+    const kept = props.initial.filter((id) => valid.has(id))
+    const rest = props.candidates.map((c) => c.id).filter((id) => !kept.includes(id))
+    return { ranking: [...kept, ...rest], complete: rest.length === 0 }
+  })
+  const [ranking, setRanking] = useState(start.ranking)
+  const [saved, setSaved] = useState(props.token !== null && start.complete)
   const cast = useMutation(
     trpc.vote.cast.mutationOptions({
       onSuccess: (result) => {
@@ -114,7 +113,6 @@ function BallotForm(props: {
     }),
   )
   const labels = new Map(props.candidates.map((c) => [c.id, c.label]))
-  const unranked = props.candidates.filter((c) => !ranking.includes(c.id))
 
   const update = (next: string[]) => {
     setRanking(next)
@@ -151,93 +149,68 @@ function BallotForm(props: {
           Drag or use the arrows
         </span>
       </div>
-      {ranking.length ? (
-        <ol className="ranked">
-          {ranking.map((id, i) => (
-            <li
-              key={id}
-              className={`ranked__row${dragging === id ? ' is-dragging' : ''}${over === id && dragging !== id ? ' is-over' : ''}`}
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.effectAllowed = 'move'
-                e.dataTransfer.setData('text/plain', id)
-                setDragging(id)
-              }}
-              onDragOver={(e) => {
-                if (!dragging) return
-                e.preventDefault()
-                setOver(id)
-              }}
-              onDragLeave={() => setOver((o) => (o === id ? null : o))}
-              onDrop={(e) => {
-                e.preventDefault()
-                drop(id)
-              }}
-              onDragEnd={() => {
-                setDragging(null)
-                setOver(null)
-              }}
-            >
-              <span className="ranked__grip" aria-hidden="true">
-                <GripVerticalIcon size={18} />
-              </span>
-              <span className="ranked__num" aria-hidden="true">
-                {i + 1}
-              </span>
-              <span className="ranked__pin" aria-hidden="true">
-                <MapPinIcon size={16} />
-              </span>
-              <span className="ranked__name">{labels.get(id)}</span>
-              <span className="ranked__tools">
-                <button
-                  type="button"
-                  className="icon-button"
-                  aria-label={`Move ${labels.get(id)} up`}
-                  disabled={i === 0}
-                  onClick={() => move(i, -1)}
-                >
-                  <ArrowUpIcon size={16} />
-                </button>
-                <button
-                  type="button"
-                  className="icon-button"
-                  aria-label={`Move ${labels.get(id)} down`}
-                  disabled={i === ranking.length - 1}
-                  onClick={() => move(i, 1)}
-                >
-                  <ArrowDownIcon size={16} />
-                </button>
-                <button
-                  type="button"
-                  className="icon-button"
-                  aria-label={`Take ${labels.get(id)} off your ballot`}
-                  onClick={() => update(ranking.filter((r) => r !== id))}
-                >
-                  <XIcon size={16} />
-                </button>
-              </span>
-            </li>
-          ))}
-        </ol>
-      ) : (
-        <p className="muted">Pick your first choice below.</p>
-      )}
-      {unranked.length ? (
-        <div className="ballot__unranked">
-          <p className="field-label">Not ranked yet</p>
-          <div className="row wrap">
-            {unranked.map((c) => (
-              <button key={c.id} type="button" className="chip" onClick={() => update([...ranking, c.id])}>
-                <PlusIcon size={14} />
-                {c.label}
+      <ol className="ranked">
+        {ranking.map((id, i) => (
+          <li
+            key={id}
+            className={`ranked__row${dragging === id ? ' is-dragging' : ''}${over === id && dragging !== id ? ' is-over' : ''}`}
+            draggable
+            onDragStart={(e) => {
+              e.dataTransfer.effectAllowed = 'move'
+              e.dataTransfer.setData('text/plain', id)
+              setDragging(id)
+            }}
+            onDragOver={(e) => {
+              if (!dragging) return
+              e.preventDefault()
+              setOver(id)
+            }}
+            onDragLeave={() => setOver((o) => (o === id ? null : o))}
+            onDrop={(e) => {
+              e.preventDefault()
+              drop(id)
+            }}
+            onDragEnd={() => {
+              setDragging(null)
+              setOver(null)
+            }}
+          >
+            <span className="ranked__grip" aria-hidden="true">
+              <GripVerticalIcon size={18} />
+            </span>
+            <span className="ranked__num" aria-hidden="true">
+              {i + 1}
+            </span>
+            <span className="ranked__pin" aria-hidden="true">
+              <MapPinIcon size={16} />
+            </span>
+            <span className="ranked__name">{labels.get(id)}</span>
+            <span className="ranked__tools">
+              <button
+                type="button"
+                className="icon-button"
+                aria-label={`Move ${labels.get(id)} up`}
+                disabled={i === 0}
+                onClick={() => move(i, -1)}
+              >
+                <ArrowUpIcon size={16} />
               </button>
-            ))}
-          </div>
-        </div>
-      ) : null}
+              <button
+                type="button"
+                className="icon-button"
+                aria-label={`Move ${labels.get(id)} down`}
+                disabled={i === ranking.length - 1}
+                onClick={() => move(i, 1)}
+              >
+                <ArrowDownIcon size={16} />
+              </button>
+            </span>
+          </li>
+        ))}
+      </ol>
       <p className="info-box">
         <InfoIcon size={18} />
-        Rank every place you'd be happy with, so your vote still counts if your first choice is out.
+        If your top choice is knocked out in the count, your vote moves to your next choice.
       </p>
       <div className="ballot__foot">
         <div>

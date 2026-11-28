@@ -59,10 +59,10 @@ export const openVotingInput = meetupIdInput.extend(openVotingFields.shape)
 export const ballotToken = z.string().regex(/^[A-Za-z0-9_-]{32}$/, 'Not a ballot token')
 
 export const castBallotInput = meetupIdInput.extend({
-  /** Shortlist item ids, best first. Ranking only some is fine. */
+  /** Every shortlist item id, best first. */
   ranking: z
     .array(z.uuid())
-    .min(1, 'Rank at least one place')
+    .min(1, 'Rank every place on the shortlist')
     .max(SHORTLIST_MAX)
     .refine((ids) => new Set(ids).size === ids.length, 'Each place can be ranked once'),
   /** Present when changing a ballot already cast. */

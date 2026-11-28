@@ -21,7 +21,8 @@ works today and what's planned.
   blends in the group's average drive, and every member's time shown.
 - **Shortlist:** members add towns from the ranked list, with notes.
 - **Vote:** anonymous ranked-choice (instant-runoff) with an optional deadline.
-  Members see turnout, not choices, and everyone sees the result when it closes.
+  Every member ranks the whole shortlist, by dragging or with arrows. Members
+  see turnout, not choices, and everyone sees the result when it closes.
 - **Bring your own agent:** an MCP server with OAuth, so a member's own agent
   (Claude, Codex or any MCP client) can join, check in, add to the shortlist and
   vote once the member confirms. See [Connecting your own agent](#connecting-your-own-agent).
@@ -80,7 +81,6 @@ From the design mockups, not built yet:
 
 - **Notifications:** an in-app list of what changed in your meetups.
 - **Meetup details:** a purpose, a date and a countdown to the day.
-- **Drag to rank:** reorder the ballot by dragging instead of with buttons.
 - **Share shortlist:** send the current shortlist to the group from the towns
   screen.
 - **Sort and town menus:** sort the fairest towns and act on a town from its
