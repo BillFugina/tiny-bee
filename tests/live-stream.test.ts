@@ -23,6 +23,9 @@ describe('live stream errors', () => {
     expect(streamErrorAction('not json')).toBe('retry')
     expect(streamErrorAction(JSON.stringify({ code: 50000 }))).toBe('retry')
     expect(streamErrorAction(JSON.stringify({ code: 80003 }))).toBe('retry')
+    // Connection or account limits can clear up.
+    expect(streamErrorAction(JSON.stringify({ code: 40111 }))).toBe('retry')
+    expect(streamErrorAction(JSON.stringify({ code: 40150 }))).toBe('retry')
   })
 })
 

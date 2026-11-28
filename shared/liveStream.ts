@@ -12,7 +12,7 @@ const MAX_BACKOFF_MS = 60_000
 /**
  * What to do after a stream error:
  * - `renew`: the token ran out, so reconnect with a fresh one.
- * - `stop`: Ably refused us (bad key, no permission, client not identified).
+ * - `stop`: Ably refused us for good (bad key, no permission, client not identified).
  *   Retrying would only repeat the refusal, so stop until the page is reloaded.
  * - `retry`: anything else, such as a dropped connection. Back off and retry.
  */
@@ -23,7 +23,10 @@ export function streamErrorAction(data: unknown): StreamErrorAction {
   const code = ablyErrorCode(data)
   if (code === undefined) return 'retry'
   if (code >= 40140 && code < 40150) return 'renew' // token expired or revoked
-  if (code >= 40100 && code < 40400) return 'stop' // unauthorized or forbidden
+  // Refusals that won't change on retry: bad or wrong credentials, a missing
+  // capability, an unidentified client, or forbidden. Other 401xx codes, such
+  // as connection or account limits, can clear up, so they back off instead.
+  if ((code >= 40100 && code < 40110) || (code >= 40160 && code < 40170) || code === 40300) return 'stop'
   return 'retry'
 }
 

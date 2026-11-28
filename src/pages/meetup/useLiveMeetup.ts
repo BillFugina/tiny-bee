@@ -39,6 +39,7 @@ export function useLiveMeetup(meetupId: string) {
     let lastEventId: string | undefined
     let failures = 0
     let missedSomething = false // a gap that one refetch should cover
+    let closedWhileHidden = false // nothing replays a gap with no event id yet, so refresh on return
 
     const refreshSoon = () => {
       clearTimeout(refreshTimer)
@@ -149,14 +150,18 @@ export function useLiveMeetup(meetupId: string) {
       }, renewIn)
     }
 
-    // No stream while the tab is hidden. Coming back starts over; the page's
-    // own refetch-on-focus covers anything that changed meanwhile.
+    // No stream while the tab is hidden. Coming back refetches once, since
+    // queries can still look fresh and Ably may have nothing to replay, then
+    // listens again.
     const onVisibility = () => {
       if (hidden()) {
         clearTimeout(retryTimer)
+        if (!refused) closedWhileHidden = true
         close()
         return
       }
+      if (closedWhileHidden) refreshSoon()
+      closedWhileHidden = false
       resting = false
       failures = 0
       void connect()
